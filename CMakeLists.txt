@@ -22,23 +22,43 @@ function(add_unmanaged_conf FNAME DSTDIR DEFAULT_OVERRIDE)
     endif()
 endfunction()
 
+#____________________________________________________________________________
+message("${CONFS_FILE}")
+
 macro(add_managed_conf FNAME DSTDIR)
     #Just for local use
     get_filename_component(CONF_FNAME ${FNAME} NAME)
     set(CONF_SRC "${CMAKE_CURRENT_LIST_DIR}/${FNAME}")
     set(CONF_DST "${DSTDIR}/${CONF_FNAME}")
 
-    #list(APPEND ${CONF_LISTNAME} "${CONF_SRC}")
-    set(CONF_GEN_LIST "${CONF_GEN_LIST}\"${CONF_SRC}\":\"${CONF_DST}\";")
-    message("${CONF_GEN_LIST}")
-    #set(${CONF_LISTNAME} "TITS")
-
-    #message("${${CONF_DST}_MANAGED}")
-    #if(NOT ${DIST_DIR}_INIT)
-    #    #File still unmanaged
-    #    SET(${DIST_DIR}_INIT TRUE)
-    #    add_custom_target( FinalMessage ALL
-    #        ${CMAKE_COMMAND} -E cmake_echo_color --cyan "${${CONF_LISTNAME}} !"
-    #        COMMENT "Final Message" )
-    #endif()
+    set(CONF_LST "${CONF_LST}${CONF_SRC}:${CONF_DST}:${PROJECT_NAME}\n")
+    file(WRITE "${CMAKE_BINARY_DIR}/conf-syncer-config.txt" "${CONF_LST}")
+    if(NOT ${CONF_DST}_INSTALLED)
+        install(FILES ${CMAKE_BINARY_DIR}/${CONF_FNAME} DESTINATION ${DSTDIR})
+    endif()
+    SET(${CONF_DST}_INSTALLED ON)
 endmacro()
+
+set(CONF_PROJECT ${CMAKE_PROJECT_NAME}-conf)
+
+project(${CONF_PROJECT}_SETUP)
+add_executable(ConfSyncerGen lib/gen-conf-main.cxx)
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/conf.h
+    COMMAND ConfSyncerGen ${CMAKE_CURRENT_BINARY_DIR}/conf.h "${CMAKE_BINARY_DIR}/conf-syncer-config.txt"
+    DEPENDS ConfSyncerGen)
+
+project(${CONF_PROJECT})
+
+set(${PROJECT_NAME}_INCLUDE_DIR
+    "${CMAKE_CURRENT_BINARY_DIR}" CACHE TYPE STRING)
+
+add_executable(${PROJECT_NAME}
+    lib/main.c
+    ${CMAKE_CURRENT_BINARY_DIR}/conf.h
+    )
+
+target_include_directories(${PROJECT_NAME} 
+    PUBLIC 
+    ${${PROJECT_NAME}_INCLUDE_DIR}
+    PRIVATE
+    "${CMAKE_SOURCE_DIR}")
