@@ -169,14 +169,14 @@ int main(int argc, char** argv)
     fclose(fout);
     printf("Generating configuration files.\n");
 
-    FILE *fout = fopen(argv[2],"w");
-    if (!fout)
+    FILE *fout2 = fopen(argv[2],"w");
+    if (!fout2)
     {
         exit(EXIT_FAILURE);
     }
 
-    fprintf(fout,"#define THE_STRING \"CHEESE\"");
-    fclose(fout);
+    fprintf(fout2,"\n");
+    fclose(fout2);
     //FOR TEST
 
     process_conf_file(argv[3]);
