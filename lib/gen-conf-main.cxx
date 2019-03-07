@@ -20,35 +20,38 @@ void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter,
     for(auto iter = start_iter; iter != end_iter; ++iter){
         std::ifstream readfconf(iter->src_file);
         std::string line;
+        std::string linebuff;
         while(getline(readfconf, line)){
-            bool full_field = false;
-            bool partial_field = false;
-            bool is_title = false;
+            linebuff = line;
+            bool is_noval = false;
+            bool is_empty = false;
             conf_field to_add;
             std::smatch matches;
             //Check all matches
-            if(std::regex_search(line, matches, comp_field_int_re)){
+            //Int field
+            if(std::regex_search(linebuff, matches, comp_field_int_re)){
                 to_add.type = field_type::intf;
-                full_field = true;
                 int int_val;
                 sscanf(matches[2].str().c_str(), "%d", &int_val);
                 to_add.default_int = int_val;
             }
-            else if(std::regex_search(line, matches, comp_field_flt_re)){
+            //Float field
+            else if(std::regex_search(linebuff, matches, comp_field_flt_re)){
                 to_add.type = field_type::fltf;
-                full_field = true;
                 float float_val;
                 sscanf(matches[2].str().c_str(), "%f", &float_val);
                 to_add.default_float = float_val;
             }
-            else if(std::regex_search(line, matches, comp_field_str_re)){
+            //String field
+            else if(std::regex_search(linebuff, matches, comp_field_str_re)){
                 to_add.type = field_type::strf;
-                full_field = true;
-                to_add.default_str = matches[2].str();
+                std::string quoted_str = matches[2].str();
+                to_add.default_str = quoted_str.substr(1, quoted_str.size() - 2);
             }
-            else if(std::regex_search(line, matches, comp_field_int_arr_re)){
+            //ARR fields
+            //Int arr field
+            else if(std::regex_search(linebuff, matches, comp_field_int_arr_re)){
                 to_add.type = field_type::arrintf;
-                full_field = true;
                 std::string arrstr= matches[2].str();
                 for(auto it = std::sregex_iterator(arrstr.begin(),
                                                     arrstr.end(),
@@ -61,9 +64,9 @@ void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter,
                     to_add.default_int_arr.push_back(int_val);
                 }
             }
-            else if(std::regex_search(line, matches, comp_field_flt_arr_re)){
+            //Float arr field
+            else if(std::regex_search(linebuff, matches, comp_field_flt_arr_re)){
                 to_add.type = field_type::arrfltf;
-                full_field = true;
                 std::string arrstr= matches[2].str();
                 for(auto it = std::sregex_iterator(arrstr.begin(),
                                                     arrstr.end(),
@@ -76,9 +79,9 @@ void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter,
                     to_add.default_flt_arr.push_back(flt_val);
                 }
             }
-            else if(std::regex_search(line, matches, comp_field_str_arr_re)){
+            //String arr field
+            else if(std::regex_search(linebuff, matches, comp_field_str_arr_re)){
                 to_add.type = field_type::arrstrf;
-                full_field = true;
                 std::string arrstr= matches[2].str();
                 for(auto it = std::sregex_iterator(arrstr.begin(),
                                                     arrstr.end(),
@@ -86,25 +89,38 @@ void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter,
                     it != std::sregex_iterator();
                     ++it)
                 {
-                    to_add.default_str_arr.push_back((*it).str());
+                    std::string quoted_str = (*it).str();
+                    to_add.default_str_arr.push_back(\
+                                quoted_str.substr(1, quoted_str.size() - 2));
                 }
+            }
+            else if(std::regex_search(linebuff, matches, comp_field_title_re)){
+                to_add.type = field_type::title;
+            }
+            else if(std::regex_search(linebuff, matches, comp_empty_line_re)){
+                is_empty = true;
+            }
+            else{
+                std::cout << "Invalid line!" << std::endl;
+                throw "Invalid line!";
             }
 
             //Adding field
-            if(full_field || partial_field || is_title){
+            if(!is_empty){
                 to_add.field_name = matches[1];
                 to_add.proj = iter->proj_name;
-            }
-
-            to_add.is_title = is_title;
-
-            if(full_field || is_title){
-                fields.push_back(to_add);
-            }
-            else if(partial_field){
-                to_check.push_back(to_add);
+                if(is_noval){
+                    to_check.push_back(to_add);
+                }
+                else{
+                    fields.push_back(to_add);
+                }
             }
         }
+    }//Finish reading conf files
+
+    for(auto iter = fields.begin(); iter != fields.end(); ++iter){
+        std::cout << iter->get_conf_line() << std::endl;
     }
 
     //Check validity
@@ -151,9 +167,19 @@ int main(int argc, char** argv)
 
     fprintf(fout,"#define THE_STRING \"CHEESE\"");
     fclose(fout);
+    printf("Generating configuration files.\n");
+
+    FILE *fout = fopen(argv[2],"w");
+    if (!fout)
+    {
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(fout,"#define THE_STRING \"CHEESE\"");
+    fclose(fout);
     //FOR TEST
 
-    process_conf_file(argv[2]);
+    process_conf_file(argv[3]);
 
     exit(EXIT_SUCCESS);
 

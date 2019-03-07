@@ -2,7 +2,7 @@
 
 #define INT_RE "\\-?[0-9]+"
 #define FLT_RE "\\-?[0-9]*\\.[0-9]+"
-#define STR_RE "\"[^(?<!\\\\)(?:\\\\{2})*\\K\"]*\""
+#define STR_RE "\\\"(?:[^\"\\\\]|\\\\.)*\\\""
 
 #define FIELD_TITLE_RE "^[ \t]*\\[([^\"\\[\\]]+)\\][ \t]*$"
 #define FIELD_NOVAL_RE "^[ \t]*(" FIELD_NAME_RE ")[ \t]*$"
@@ -14,11 +14,11 @@
 #define FIELD_STR_RE VAL_FIELD_START "(" STR_RE ")" VAL_FIELD_END
 
 #define FIELD_INT_ARR_RE VAL_FIELD_START \
-    "\\[(" INT_RE "(?:[ \t]+" INT_RE ")*)\\]" VAL_FIELD_END
+    "\\[([ \t]*" INT_RE "(?:[ \t]+" INT_RE ")*)[ \t]*\\]" VAL_FIELD_END
 #define FIELD_FLT_ARR_RE VAL_FIELD_START \
-    "\\[(" FLT_RE "(?:[ \t]+" FLT_RE ")*)\\]" VAL_FIELD_END
+    "\\[[ \t]*(" FLT_RE "(?:[ \t]+" FLT_RE ")*)[ \t]*\\]" VAL_FIELD_END
 #define FIELD_STR_ARR_RE VAL_FIELD_START \
-    "\\[(" STR_RE "(?:[ \t]+" STR_RE ")*)\\]" VAL_FIELD_END
+    "\\[[ \t]*(" STR_RE "(?:[ \t]+" STR_RE ")*)[ \t]*\\]" VAL_FIELD_END
 
 #define EMPTY_LINE_RE "^[ \t]*$"
 

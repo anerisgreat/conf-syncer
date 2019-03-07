@@ -43,18 +43,18 @@ set(CONF_PROJECT ${CMAKE_PROJECT_NAME}-conf)
 
 project(${CONF_PROJECT}_SETUP)
 add_executable(ConfSyncerGen lib/gen-conf-main.cxx)
-add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/conf.h
-    COMMAND ConfSyncerGen ${CMAKE_CURRENT_BINARY_DIR}/conf.h "${CMAKE_BINARY_DIR}/conf-syncer-config.txt"
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/conf.h ${CMAKE_CURRENT_BINARY_DIR}/conf.c
+    COMMAND ConfSyncerGen ${CMAKE_CURRENT_BINARY_DIR}/conf.h {CMAKE_CURRENT_BINARY_DIR}/conf.c "${CMAKE_BINARY_DIR}/conf-syncer-config.txt"
     DEPENDS ConfSyncerGen)
 
-project(${CONF_PROJECT})
+project(${CONF_PROJECT} C CXX)
 
 set(${PROJECT_NAME}_INCLUDE_DIR
     "${CMAKE_CURRENT_BINARY_DIR}" CACHE TYPE STRING)
 
-add_executable(${PROJECT_NAME}
-    lib/main.c
+add_library(${PROJECT_NAME}
     ${CMAKE_CURRENT_BINARY_DIR}/conf.h
+    ${CMAKE_CURRENT_BINARY_DIR}/conf.c
     )
 
 target_include_directories(${PROJECT_NAME} 

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <sstream>
 
 struct conf_file_entry{
     public:
@@ -30,7 +31,7 @@ enum field_type{
     arrintf,
     arrfltf,
     arrstrf,
-    notype
+    title
 };
 
 struct conf_field{
@@ -57,12 +58,67 @@ struct conf_field{
             default_int(0),
             default_float(0),
             default_str(""),
-            type(field_type::notype),
             default_int_arr(),
             default_flt_arr(),
             default_str_arr()
         {}
+
+        std::string get_conf_line(){
+            std::stringstream ret_str;
+
+            switch(type){
+                case field_type::intf :
+                    ret_str << field_name << " = " << default_int; break;
+                case field_type::fltf :
+                    ret_str << field_name << " = " << default_float; break;
+                case field_type::strf:
+                    ret_str << field_name << " = \"" << default_str \
+                        << "\""; break;
+                case field_type::arrintf:
+                    ret_str << field_name << " = [ ";
+                    if(default_int_arr.size() > 0){
+                        for(auto iter = default_int_arr.begin();
+                                iter != default_int_arr.end();
+                                ++iter)
+                        {
+                            ret_str << *iter << ' ';
+                        }
+                    }
+                    ret_str << ']';
+                    break;
+                case field_type::arrfltf:
+                    ret_str << field_name << " = [ ";
+                    if(default_flt_arr.size() > 0){
+                        for(auto iter = default_flt_arr.begin();
+                                iter != default_flt_arr.end();
+                                ++iter)
+                        {
+                            ret_str << *iter << ' ';
+                        }
+                    }
+                    ret_str << ']';
+                    break;
+                case field_type::arrstrf:
+                    ret_str << field_name << " = [ ";
+                    if(default_str_arr.size() > 0){
+                        for(auto iter = default_str_arr.begin();
+                                iter != default_str_arr.end();
+                                ++iter)
+                        {
+                            ret_str << '"' << *iter << "\" ";
+                        }
+                    }
+                    ret_str << ']';
+                    break;
+                case field_type::title:
+                    ret_str << "[ " << field_name << " ]";
+                    break;
+            }
+            return ret_str.str();
+        }
 };
+
+void process_conf_file(char* conf_fname);
 
 void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter, 
         std::vector<conf_file_entry>::iterator end_iter);
