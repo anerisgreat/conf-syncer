@@ -4,11 +4,13 @@
 #define FLT_RE "\\-?[0-9]*\\.[0-9]+"
 #define STR_RE "\\\"(?:[^\"\\\\]|\\\\.)*\\\""
 
-#define FIELD_TITLE_RE "^[ \t]*\\[([^\"\\[\\]]+)\\][ \t]*$"
-#define FIELD_NOVAL_RE "^[ \t]*(" FIELD_NAME_RE ")[ \t]*$"
-
 #define VAL_FIELD_START "^[ \t]*(" FIELD_NAME_RE ")[ \t]*=[ \t]*"
 #define VAL_FIELD_END "[ \t]*$"
+
+#define FIELD_TITLE_RE "^[ \t]*\\[([^\"\\[\\]]+)\\][ \t]*$"
+#define FIELD_NOVAL_RE "^[ \t]*(" FIELD_NAME_RE ")[ \t]*" \
+    "(int|float|string|arr_int|arr_float|arr_string)" VAL_FIELD_END
+
 #define FIELD_INT_RE VAL_FIELD_START "(" INT_RE ")" VAL_FIELD_END
 #define FIELD_FLT_RE VAL_FIELD_START "(" FLT_RE ")" VAL_FIELD_END
 #define FIELD_STR_RE VAL_FIELD_START "(" STR_RE ")" VAL_FIELD_END

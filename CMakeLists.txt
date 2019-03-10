@@ -2,67 +2,130 @@ set(CONF_SYNCER_DIR "${CMAKE_CURRENT_LIST_DIR}" CACHE TYPE STRING)
 
 option(CONF_OVERRIDE "Override configuration defaults")
 
-function(add_unmanaged_conf FNAME DSTDIR DEFAULT_OVERRIDE)
-    set(CONF_SRC "${CMAKE_CURRENT_LIST_DIR}/${FNAME}")
-    set(CONF_DST "${DSTDIR}/${FNAME}")
+#macro(add_conf FNAME DSTDIR CONFPROJ)
+macro(add_conf)
+    set(_OPTS MANAGED UNMANAGED)
+    set(_ONEVALARGS SRC DSTDIR CONF_PROJ PATH_ALIAS)
+    set(_MULTIVALARGS)
+    cmake_parse_arguments(ADD_CONF
+        "${_OPTS}"
+        "${_ONEVALARGS}"
+        "${_MULTIVALARGS}"
+        "${ARGN}")
+    #Just for local use
+    get_filename_component(CONF_FNAME ${ADD_CONF_SRC} NAME)
+    #Setting variables for file source and destination
+    set(CONF_SRC "${CMAKE_CURRENT_LIST_DIR}/${ADD_CONF_SRC}")
+    set(CONF_DST "${ADD_CONF_DSTDIR}/${CONF_FNAME}")
+    set(CONFPROJ ${ADD_CONF_CONF_PROJ})
+    if(${ADD_CONF_UNMANAGED} STREQUAL "TRUE")
+        if(NOT DEFINED ADD_CONF_PATH_ALIAS)
+            message(FATAL_ERROR "No path alias defined for "
+                "unmanaged configuration file")
+        endif()
+        if(${ADD_CONF_MANAGED} STREQUAL "TRUE")
+            message(FATAL_ERROR "Configuration file cannot be both managed "
+                "and unmanaged")
+        endif()
+    endif()
+    if(${ADD_CONF_UNMANAGED} STREQUAL FALSE AND
+            ${ADD_CONF_MANAGED} STREQUAL FALSE)
+        message(FATAL_ERROR "Configuration file must be either managed "
+            "or unmanaged")
+    endif()
 
-    set(TO_INSTALL_${FNAME} ON)
+    #TODO: settle ambiguity between .files and _files
+    #TODO: filter out bad file names (by adjusting tokens respectively)
+    #Since the alias will be the variable name in the namespace for unmanaged,
+        #and for managed the variable name is the file name,
+        #we make sure there are no collisions between the two.
+    if(${ADD_CONF_MANAGED} STREQUAL "TRUE")
+        #Variable name will be file name without extention
+        get_filename_component(TMP_FNAME_WE ${CONF_FNAME} NAME_WE)
+        set(NAMESPACE_TOKEN "${CONFPROJ}_${TMP_FNAME_WE}")
+    else()
+        set(NAMESPACE_TOKEN "${CONFPROJ}_${ADD_CONF_PATH_ALIAS}")
+    endif()
 
-    #BOLLUCKS
-    if(EXISTS "${CONF_DST}")
-        if(NOT DEFAULT_OVERRIDE)
-            if(NOT CONF_OVERRIDE)
-                set(TO_INSTALL OFF)
-            endif()
+    #Now that we know which variable name we'd like, we check if it is taken
+        #We must also remember that if the resource is managed, we expect it
+        #might be taken by another managed instance of this file
+    if("${ADD_CONF_MANAGED}" STREQUAL "TRUE")
+        #If namespace token taken up by unmanaged resource
+        if("${${NAMESPACE_TOKEN}}" STREQUAL "UNMANAGED")
+            message(FATAL_ERROR "Duplicate name in both unmanaged alias "
+                "and managed file name.")
+        else()
+            set(${NAMESPACE_TOKEN} "MANAGED")
+        endif()
+    else()
+        #Is unmanaged, if the variable is taken up by anyone, throw error
+        if(DEFINED ${NAMESPACE_TOKEN})
+            message(FATAL_ERROR "Alias name already used for another resource. "
+                "Either another unmanaged resource is using it as an alias, "
+                "or a managed resource's file name matches the alias name.")
+        endif()
+        set(${NAMESPACE_TOKEN} "UNMANAGED")
+    endif()
+
+    if(${ADD_CONF_MANAGED} STREQUAL "TRUE")
+        if(NOT ${ADD_CONF_SRC} MATCHES ".*\\.conf$")
+            message(FATAL_ERROR "Managed files must end with \".conf\".")
         endif()
     endif()
 
-    #Irrelevant as this is evaluated at CMAKE and not on install
-    if(TO_INSTALL)
-        install(FILES "${CONF_SRC}" DESTINATION "${DSTDIR}")
-        message("Will install configuration ${CONF_SRC} to ${CONF_DST}")
-    else()
-        message("Skipping installation of configuration ${CONF_SRC}")
-    endif()
-endfunction()
-
-#____________________________________________________________________________
-
-macro(add_managed_conf FNAME DSTDIR CONFPROJ)
-    #Just for local use
-    get_filename_component(CONF_FNAME ${FNAME} NAME)
-    #Setting variables for file source and destination
-    set(CONF_SRC "${CMAKE_CURRENT_LIST_DIR}/${FNAME}")
-    set(CONF_DST "${DSTDIR}/${CONF_FNAME}")
-
+    set(WORK_DIR ${CMAKE_BINARY_DIR}/${CONFPROJ})
     #REMOVE LATER
     project(${CONFPROJ}-${CONF_SRC})
+
     #Appending File name and necessary info to list for conf generators
-    set(CONF_LST "${CONF_LST}${CONF_SRC}:${CONF_DST}:${PROJECT_NAME}\n")
-    set(${CONFPROJ}_TXT_FILE "${CMAKE_BINARY_DIR}/${CONFPROJ}-config.txt")
+    set(CONF_LST "${CONF_LST}${CONF_SRC}:${CONF_DST}:${ADD_CONF_MANAGED}:${ADD_CONF_PATH_ALIAS}\n")
+    set(${CONFPROJ}_TXT_FILE 
+        "${WORK_DIR}/config.txt")
     file(WRITE ${${CONFPROJ}_TXT_FILE} "${CONF_LST}")
+
     #Installation command (NOTE: MAYBE FIND A WAY TO MAKE OPTIONAL)
-    if(NOT ${CONF_DST}_INSTALLED)
-        install(FILES ${CMAKE_BINARY_DIR}/${CONF_FNAME} DESTINATION ${DSTDIR})
+    #We check if it is managed or unmanaged, to check how to install
+    #Also we check against double installation
+    if(${ADD_CONF_MANAGED} STREQUAL "TRUE")
+        if(NOT "${${CONF_DST}_INSTALLED}" STREQUAL "MANAGED")
+            if("${${CONF_DST}_INSTALLED}" STREQUAL "UNMANAGED")
+                message(FATAL_ERROR "Configuration file declared as both "
+                    "managed and unmanaged!")
+            endif()
+            install(FILES ${CMAKE_BINARY_DIR}/${CONF_FNAME}
+                DESTINATION ${ADD_CONF_DSTDIR})
+            SET(${CONF_DST}_INSTALLED "MANAGED")
+        endif()
+    #Unmanaged
+    else()
+        if(NOT DEFINED ${CONF_DST}_INSTALLED)
+            install(FILES "${CONF_SRC}" DESTINATION "${CONF_DST}")
+            SET(${CONF_DST}_INSTALLED "UNMANAGED")
+        else()
+            message(FATAL_ERROR "Duplicate declaration for configuration file.")
+        endif()
     endif()
-    SET(${CONF_DST}_INSTALLED ON)
 
     #One time per configuration project to add generation of the file
     if(NOT ${CONFPROJ})
         project(${CONFPROJ}_SETUP)
         set(${CONFPROJ}_CONF_GEN ${CONFPROJ}-conf-gen CACHE TYPE STRING)
+
         #Name of header and c file generated by the generators.
         #Needed for respective libraries
-        set(${CONFPROJ}_CONF_SRC_FNAME
-            ${CMAKE_BINARY_DIR}/${CONFPROJ})
+        set(${CONFPROJ}_CONF_SRC_FNAME ${WORK_DIR}/${CONFPROJ})
+
         #Generating the executable for the generator to be caled at MAKE
         add_executable(${${CONFPROJ}_CONF_GEN}
             ${CONF_SYNCER_DIR}/lib/gen-conf-main.cxx)
+
         #The command to generate the configuration files
         add_custom_command(OUTPUT 
+
                 ${${CONFPROJ}_CONF_SRC_FNAME}.h
                 ${${CONFPROJ}_CONF_SRC_FNAME}.c
-                COMMAND ${${CONFPROJ}_CONF_GEN}
+            COMMAND ${${CONFPROJ}_CONF_GEN}
                 "${${CONFPROJ}_CONF_SRC_FNAME}.h"
                 "${${CONFPROJ}_CONF_SRC_FNAME}.c"
                 "${${CONFPROJ}_TXT_FILE}"
@@ -72,7 +135,7 @@ macro(add_managed_conf FNAME DSTDIR CONFPROJ)
         project(${CONFPROJ} C CXX)
 
         set(${PROJECT_NAME}_INCLUDE_DIR
-            "${CMAKE_BINARY_DIR}" CACHE TYPE STRING)
+            "${WORK_DIR}" CACHE TYPE STRING)
 
         #Adding the previously generated source files
         add_library(${PROJECT_NAME} STATIC
@@ -84,8 +147,7 @@ macro(add_managed_conf FNAME DSTDIR CONFPROJ)
         target_include_directories(${PROJECT_NAME} 
             PUBLIC 
             ${${PROJECT_NAME}_INCLUDE_DIR}
-            PRIVATE
-            "${CMAKE_SOURCE_DIR}")
+            PRIVATE "${CMAKE_SOURCE_DIR}")
         SET(${CONFPROJ} ON)
     endif()
 endmacro()

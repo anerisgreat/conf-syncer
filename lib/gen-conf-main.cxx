@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
-#include <list>
 
 void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter, 
         std::vector<conf_file_entry>::iterator end_iter)
@@ -17,6 +16,7 @@ void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter,
     std::vector<conf_field> fields;
     std::vector<conf_field> to_check;
 
+    //Open line by line
     for(auto iter = start_iter; iter != end_iter; ++iter){
         std::ifstream readfconf(iter->src_file);
         std::string line;
@@ -100,15 +100,38 @@ void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter,
             else if(std::regex_search(linebuff, matches, comp_empty_line_re)){
                 is_empty = true;
             }
+            else if(std::regex_search(linebuff, matches, comp_field_noval_re)){
+                is_noval = true;
+                std::string val_type_str = matches[2].str();
+                if(val_type_str.compare("int") == 0){
+                    to_add.type = field_type::intf;
+                }
+                else if(val_type_str.compare("float") == 0){
+                    to_add.type = field_type::fltf;
+                }
+                else if(val_type_str.compare("string") == 0){
+                    to_add.type = field_type::strf;
+                }
+                else if(val_type_str.compare("arr_int") == 0){
+                    to_add.type = field_type::arrintf;
+                }
+                else if(val_type_str.compare("arr_float") == 0){
+                    to_add.type = field_type::arrfltf;
+                }
+                else if(val_type_str.compare("arr_string") == 0){
+                    to_add.type = field_type::arrstrf;
+                }
+            }
             else{
                 std::cout << "Invalid line!" << std::endl;
+                std::cout << linebuff << std::endl;
+                //TODO: THROW SOMETHING BETTER
                 throw "Invalid line!";
             }
 
             //Adding field
             if(!is_empty){
                 to_add.field_name = matches[1];
-                to_add.proj = iter->proj_name;
                 if(is_noval){
                     to_check.push_back(to_add);
                 }
@@ -119,11 +142,54 @@ void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter,
         }
     }//Finish reading conf files
 
-    for(auto iter = fields.begin(); iter != fields.end(); ++iter){
-        std::cout << iter->get_conf_line() << std::endl;
+    //Checking that all the 'to check' fields exist
+    for(auto iter = to_check.begin(); iter != to_check.end(); ++iter){
+        if(iter->type != field_type::title){
+            bool found = false;
+            for(auto fielditer = fields.begin();
+                    fielditer != fields.end() && !found;
+                    ++fielditer)
+            {
+                if(fielditer->type != field_type::title){
+                    if(iter->field_name.compare(fielditer->field_name) == 0){
+                        if(iter->type == fielditer->type){
+                            found = true;
+                        }
+                        else{
+                            std::cout << "The field " << iter->field_name << \
+                                " was defined twice with different types."<< 
+                                std::endl;
+                            throw "Mismatch types!";
+                        }
+                    }
+                }
+            }
+            if(!found){
+                std::cout << "The field " << iter->field_name << \
+                    " was defined without value and never redefined with one.";
+                throw "No default value!";
+            }
+        }
     }
 
-    //Check validity
+    //Checking for duplicate field types 
+    for(auto iter = fields.begin(); iter != fields.end(); ++iter){
+        if(iter->type != field_type::title){
+            for(auto compiter = (iter + 1);
+                    compiter != fields.end();
+                    ++compiter)
+            {
+                if(compiter->type != field_type::title){
+                    if(iter->field_name.compare(compiter->field_name) == 0){
+                        std::cout << "Duplicate field " << iter->field_name << \
+                            std::endl;
+                        throw "Duplicate fields!";
+                    }
+                }
+            }
+        }
+    }
+
     //Generate
 }
 
@@ -157,7 +223,6 @@ int main(int argc, char** argv)
         printf("ERROR COMPILING REGEX\n");
     }*/
     //FOR TEST
-    printf("Generating configuration files.\n");
 
     FILE *fout = fopen(argv[1],"w");
     if (!fout)
