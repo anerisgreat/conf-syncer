@@ -10,7 +10,8 @@
 #include <iostream>
 #include <fstream>
 
-void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter, 
+std::vector<conf_field> process_files_for_dest(
+        std::vector<conf_file_entry>::iterator start_iter,
         std::vector<conf_file_entry>::iterator end_iter)
 {
     std::vector<conf_field> fields;
@@ -46,7 +47,8 @@ void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter,
             else if(std::regex_search(linebuff, matches, comp_field_str_re)){
                 to_add.type = field_type::strf;
                 std::string quoted_str = matches[2].str();
-                to_add.default_str = quoted_str.substr(1, quoted_str.size() - 2);
+                to_add.default_str = 
+                    quoted_str.substr(1, quoted_str.size() - 2);
             }
             //ARR fields
             //Int arr field
@@ -191,63 +193,109 @@ void process_files_for_dest(std::vector<conf_file_entry>::iterator start_iter,
     }
 
     //Generate
+    return fields;
 }
 
-void process_conf_file(char* conf_fname){
+std::vector<file_entry> process_conf_file(char* conf_fname){
     std::ifstream readfconf(conf_fname);
     std::vector<conf_file_entry> conf_entries;
     std::string line;
+    //Read all files logged by CMake
     while(getline(readfconf, line)){
         conf_entries.push_back(conf_file_entry(line));
     }
 
+    //Sort by destination file
     sort(conf_entries.begin(), conf_entries.end(),
         []( const conf_file_entry& a, const conf_file_entry&b ){
             return a.dst_file.compare(b.dst_file) > 0;
     });
 
+    //List of struct of files to take care of
+    std::vector<file_entry> files_to_include;
+
     std::vector<conf_file_entry>::iterator start_iter = conf_entries.begin(); 
+    //Run with all entires
     while(start_iter != conf_entries.end()){
-        std::vector<conf_file_entry>::iterator end_iter = start_iter + 1;
-        while(end_iter != conf_entries.end() && 
-            (*end_iter).dst_file == (*start_iter).dst_file)
-            {++end_iter;}
-        process_files_for_dest(start_iter, end_iter);
-        start_iter = end_iter;
+        //Group managed entries
+        if(start_iter->is_managed){
+            std::vector<conf_file_entry>::iterator end_iter = start_iter + 1;
+            while(end_iter != conf_entries.end() && 
+                (*end_iter).dst_file == (*start_iter).dst_file)
+                {++end_iter;}
+            std::vector<conf_field> fields = 
+                process_files_for_dest(start_iter, end_iter);
+
+            file_entry to_add(start_iter->dst_file,
+                    start_iter->alias,
+                    fields);
+            files_to_include.push_back(to_add);
+
+            start_iter = end_iter;
+        }
+        else{
+            file_entry to_add(start_iter->dst_file,
+                    start_iter->alias);
+            files_to_include.push_back(to_add);
+            //Assume no two unmanaged files with same dst one after another
+                //(input sanitized by CMake)
+            ++start_iter;
+        }
     }
+
+    return files_to_include;
+}
+
+void generate_outputs(std::vector<file_entry> conf_files,
+        std::string out_header_fname,
+        std::string out_source_fname)
+{
+    //Generate configuration files
+    //Write headers
+        //Make structure
+        //Fill with fields
+        //
+
+    //Generating configuration files
+    for(auto file_iter = conf_files.begin();
+            file_iter != conf_files.end();
+            ++file_iter)
+    {
+        if(file_iter->is_managed){
+            FILE* fout_conf = fopen((file_iter->alias + ".conf").c_str(), "w");
+            if (!fout_conf)
+                exit(EXIT_FAILURE);
+
+            for(auto field_iter = file_iter->file_fields.begin();
+                    field_iter != file_iter->file_fields.end();
+                    ++field_iter )
+            {
+                fprintf(fout_conf, 
+                        (field_iter->get_conf_line() + '\n').c_str());
+            }
+
+            fclose(fout_conf);
+        }
+    }
+    FILE* fout_header = fopen(out_header_fname.c_str(), "w");
+    if (!fout_header)
+        exit(EXIT_FAILURE);
+
+    FILE* fout_source = fopen(out_source_fname.c_str(), "w");
+    if (!fout_source )
+        exit(EXIT_FAILURE);
+
+
+    fclose(fout_header);
+    fclose(fout_source);
 }
 
 int main(int argc, char** argv)
 {
-    /*if(!compile_regex_fields()){
-        printf("ERROR COMPILING REGEX\n");
-    }*/
-    //FOR TEST
-
-    FILE *fout = fopen(argv[1],"w");
-    if (!fout)
-    {
-        exit(EXIT_FAILURE);
-    }
-
-    fprintf(fout,"#define THE_STRING \"CHEESE\"");
-    fclose(fout);
     printf("Generating configuration files.\n");
 
-    FILE *fout2 = fopen(argv[2],"w");
-    if (!fout2)
-    {
-        exit(EXIT_FAILURE);
-    }
-
-    fprintf(fout2,"\n");
-    fclose(fout2);
-    //FOR TEST
-
-    process_conf_file(argv[3]);
+    std::vector<file_entry> output_files = process_conf_file(argv[3]);
+    generate_outputs(output_files, argv[1], argv[2]);
 
     exit(EXIT_SUCCESS);
-
-    //printf("%zu\n", count_chars(rfbuff, '\n'));
-
 }

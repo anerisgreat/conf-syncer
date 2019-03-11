@@ -93,7 +93,7 @@ macro(add_conf)
                 message(FATAL_ERROR "Configuration file declared as both "
                     "managed and unmanaged!")
             endif()
-            install(FILES ${CMAKE_BINARY_DIR}/${CONF_FNAME}
+            install(FILES ${WORK_DIR}/${CONF_FNAME}
                 DESTINATION ${ADD_CONF_DSTDIR})
             SET(${CONF_DST}_INSTALLED "MANAGED")
         endif()
@@ -122,14 +122,14 @@ macro(add_conf)
 
         #The command to generate the configuration files
         add_custom_command(OUTPUT 
-
                 ${${CONFPROJ}_CONF_SRC_FNAME}.h
                 ${${CONFPROJ}_CONF_SRC_FNAME}.c
             COMMAND ${${CONFPROJ}_CONF_GEN}
                 "${${CONFPROJ}_CONF_SRC_FNAME}.h"
                 "${${CONFPROJ}_CONF_SRC_FNAME}.c"
                 "${${CONFPROJ}_TXT_FILE}"
-            DEPENDS ${${CONFPROJ}_CONF_GEN})
+            DEPENDS ${${CONFPROJ}_CONF_GEN}
+            WORKING_DIRECTORY ${WORK_DIR})
 
         #The configuration project to be linked against
         project(${CONFPROJ} C CXX)
