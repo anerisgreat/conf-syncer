@@ -538,8 +538,48 @@ void get_parse_lines(conf_field cfield, std::string alias,
                 break;
             case field_type::arrintf:
                 outs << INDENT_2 << "int tmp_buff[128];\n"\
-                    << INDENT_2 << "for(int i = 0; i < strlen(valbuff); ++i){\n";
-                    //<< INDENT_3;
+                    << INDENT_2 << "int tmp_index = 0;\n"\
+                    << INDENT_2 << "char tmp_chr_buff[128];\n"\
+                    << INDENT_2 << "int tmp_chr_index = 0;\n"\
+                    << INDENT_2 << "int in_num = 0;\n"\
+                    << INDENT_2 << "for(int i=0; i<strlen(valbuff)+1; ++i){\n"\
+                    << INDENT_3 << "if(valbuff[i] != ' ' && \n"\
+                    << INDENT_4 << "valbuff[i] != '\\t' && \n"\
+                    << INDENT_4 << "valbuff[i] != '\\n' && \n"\
+                    << INDENT_4 << "valbuff[i] != '\\0' && \n"\
+                    << INDENT_4 << "!(valbuff[i] >= '0' && valbuff[i]<='9'))\n"\
+                    << INDENT_3 << "{\n"\
+                    << INDENT_4 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
+                    << INDENT_3 << "}\n"\
+                    << INDENT_3 << "if(in_num){\n"\
+                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9'){\n"\
+                    << INDENT_5 << "app_and_incr(tmp_chr_buff,"
+                        << "&tmp_chr_index, valbuff[i]);\n"\
+                    << INDENT_4 << "}\n"\
+                    << INDENT_4 << "else{\n"\
+                    << INDENT_5 << "tmp_buff[tmp_index] = "\
+                        << "atoi(tmp_chr_buff);\n"\
+                    << INDENT_5 << "tmp_chr_index = 0;\n"\
+                    << INDENT_5 << "tmp_index++;\n"\
+                    << INDENT_5 << "in_num = 0;\n"\
+                    << INDENT_4 << "}\n"\
+                    << INDENT_3 << "}\n"\
+                    << INDENT_3 << "else{\n"\
+                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9'){\n"\
+                    << INDENT_5 << "app_and_incr(tmp_chr_buff,"
+                        << "&tmp_chr_index, valbuff[i]);\n"\
+                    << INDENT_5 << "in_num = 1;\n"\
+                    << INDENT_4 << "}\n"\
+                    << INDENT_3 << "}\n"\
+                    << INDENT_2 << "}\n"\
+                    << INDENT_2 << alias << "." << cfield.field_name\
+                        << " = malloc(sizeof(int) * tmp_index);\n"\
+                    << INDENT_2 << "for(int i = 0; i < tmp_index; i++){\n"\
+                    << INDENT_3 << alias << "." << cfield.field_name\
+                        << "[i] = tmp_buff[i];\n"\
+                    << INDENT_2 << "}\n"\
+                    << INDENT_2 << alias << "." << cfield.field_name\
+                        << "_nelements = tmp_index;\n";
         }
         outs << INDENT_1 << "}\n";
     }
