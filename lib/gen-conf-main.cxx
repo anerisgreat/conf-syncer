@@ -100,10 +100,6 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "}\n"
 
 //Preceeded with "int {PROJ NAME}
-#define _PARSE_VALUE_A
-"_parse_value(char* namebuff, char* valbuff, char* line, int linen){\n"\
-"\n"\
-"}\n"
 
 //Preceeded with "int {PROJ NAME}
 
@@ -234,8 +230,8 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "                        case(' '):\n"\
 "                        case('\\t'):\n"\
 "                        case('\\n'):\n"\
+"                            load_stupid_param(namebuff, valbuff, line, linen);\n"\
 "                            break;\n"\
-"                            //END;\n"\
 "                        default:\n"\
 "                            if((c >= '0' && c <= '9') ||\n"\
 "                                (c == '.' && ftype == fltf && periodf == 0))\n"\
@@ -259,11 +255,10 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "                            break;\n"\
 "                        case(\'\\\"\'):\n"\
 "                            reader_state = post_val;\n"\
-"                            //END;\n"\
+"                            load_stupid_param(namebuff, valbuff, line, linen);\n"\
 "                            break;\n"\
 "                        case('\\n'):\n"\
 "                            msg_and_exit(\"Bad line!\", line, linen);\n"\
-"                            //END\n"\
 "                            break;\n"\
 "                        default:\n"\
 "                            app_and_incr(valbuff, &valbuff_index, c);\n"\
@@ -294,7 +289,7 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "                            break;\n"\
 "                        case(']'):\n"\
 "                            reader_state = post_val;\n"\
-"                            //END;\n"\
+"                            load_stupid_param(namebuff, valbuff, line, linen);\n"\
 "                            break;\n"\
 "                        default:\n"\
 "                            app_and_incr(valbuff, &valbuff_index, c);\n"\
@@ -382,6 +377,7 @@ enum field_type{
     title
 };
 
+
 struct conf_field{
     public:
         //std::string src[MAX_FIELD_LEN]; //?
@@ -458,22 +454,6 @@ struct conf_field{
             }
         }
 
-        void get_parse_lines(std::stringstream& outs){
-            if(type != field_type::title){
-                outs << INDENT_1 << \
-                    "if(strcmp(namebuff, \"" << field_name << "\") == 0){\n";
-
-                switch(type){
-                    case field_type::intf:
-                        outs << INDENT_2 << "char* end;\n";
-                        outs << INDENT_2 << alias << '.' << field_name << \
-                            ";\n";
-                        outs << "\n";
-                        break;
-                }
-                outs << INDENT_1 << "}\n";
-            }
-        }
 
         void get_field_type_str(std::stringstream& outs){
             if(type == field_type::intf ||
@@ -529,6 +509,41 @@ struct conf_field{
             }
         }
 };
+
+void get_parse_lines(conf_field cfield, std::string alias, 
+        std::stringstream& outs)
+{
+    if(cfield.type != field_type::title){
+        outs << INDENT_1 << \
+            "if(strcmp(namebuff, \"" << cfield.field_name << \
+                "\") == 0){\n";
+
+        switch(cfield.type){
+            case field_type::intf:
+                outs << INDENT_2 << alias << '.' << cfield.field_name \
+                    << "= atoi(valbuff);\n";
+                break;
+            case field_type::fltf:
+                outs << INDENT_2 << alias << '.' << cfield.field_name \
+                    << "= atof(valbuff);\n";
+                break;
+            case field_type::strf:
+                outs << INDENT_2 << "int l = strlen(valbuff);\n"\
+                    << INDENT_2 << alias << '.' << cfield.field_name \
+                        << " = malloc(l + 1);\n" \
+                    << INDENT_2 << "strcpy(" << alias << '.' \
+                        << cfield.field_name << ", valbuff);\n"\
+                        << INDENT_2 << alias << '.' << cfield.field_name \
+                        << "[l] = '\\0';\n";
+                break;
+            case field_type::arrintf:
+                outs << INDENT_2 << "int tmp_buff[128];\n"\
+                    << INDENT_2 << "for(int i = 0; i < strlen(valbuff); ++i){\n";
+                    //<< INDENT_3;
+        }
+        outs << INDENT_1 << "}\n";
+    }
+}
 
 struct conf_file_out{
     public:
@@ -593,6 +608,18 @@ struct conf_file_out{
 
             outs << "}\n";
 
+            outs << "void load_" << alias << "_param(char* namebuff,\n"\
+                << INDENT_1 << "char* valbuff,\n"\
+                << INDENT_1 << "char* line,\n"\
+                << INDENT_1 << "int linen)\n"\
+                << "{\n";
+            for(auto field_iter = file_fields.begin();
+                    field_iter != file_fields.end();
+                    ++field_iter)
+            {
+                get_parse_lines(*field_iter, alias, outs);
+            }
+            outs << "}\n";
 
             outs << "int " << alias << "_load_from_path(const char* path){\n";
             outs << _LOAD_FROM_PATH_STR_A << alias << _LOAD_FROM_PATH_STR_B;
@@ -902,5 +929,4 @@ int main(int argc, char** argv)
 
     exit(EXIT_SUCCESS);
 }
-
 
