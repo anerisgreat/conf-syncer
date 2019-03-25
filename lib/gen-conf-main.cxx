@@ -344,9 +344,34 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "field_flt_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[[ \\t]*(\\-?[0-9]*\\.[0-9]+(?:[ \\t]+\\-?[0-9]*\\.[0-9]+)*)[ \\t]*\\][ \\t]*$')\n"\
 "field_str_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[[ \\t]*(\\\"(?:[^\\\"\\\\]|\\\\.)*\\\"(?:[ \\t]+\\\"(?:[^\\\"\\\\]|\\\\.)*\\\")*)[ \\t]*\\][ \\t]*$')\n"\
 "empty_line_re = re.compile(r'^[ \\t]*$')\n"\
-"field_title_re = re.compile(r'^[ \\t]*\\[([^\\[\\]]+)\\][ \\t]*$')\n"\
-"\n"
+"field_title_re = re.compile(r'^[ \\t]*\\[([^\\[\\]]+)\\][ \\t]*$')\n"
 
+//def NAME_load_from_path()...
+#define PY_LOAD_FROM_PATH_A
+"_load_from_path(path):\n"
+"    fread = open(path, 'r')\n"\
+"    retval = object()\n"\
+"    linestr = fread.readline()\n"\
+"    while(linestr != ''):\n"\
+"        fintm = field_int_re.match(linestr)\n"\
+"        ffltm = field_flt_re.match(linestr)\n"\
+"        fstrm = field_str_re.match(linestr)\n"\
+"        farrintm = field_int_arr_re.match(linestr)\n"\
+"        farrfltm = field_flt_arr_re.match(linestr)\n"\
+"        farrstrm = field_str_arr_re.match(linestr)\n"\
+"        femptym = empty_line_re.match(linestr)\n"\
+"        ftitlem = field_title_re.match(linestr)\n"\
+"\n"\
+"        isintf = fintm.groups != None\n"\
+"        isfltf = ffltm.groups != None\n"\
+"        isstrf = fstrm.groups != None\n"\
+"        isarrintm = farrintm.groups != None\n"\
+"        isarrfltm = farrfltm.groups != None\n"\
+"        isarrstrm = farrstrm.groups != None\n"\
+"        isemptym = femptym.groups != None\n"\
+"        istitlem = ftitlem.groups != None\n"\
+"\n"
+//FIELDS
 
 std::string get_file_name_no_extention(const std::string& s) {
     char sep = '/';
