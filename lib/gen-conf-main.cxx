@@ -11,12 +11,12 @@
 
 #define INT_RE "\\-?[0-9]+"
 #define FLT_RE "\\-?[0-9]*\\.[0-9]+"
-#define STR_RE "\\\"(?:[^\"\\\\]|\\\\.)*\\\""
+#define STR_RE "\\\"(?:[^\\\"\\\\]|\\\\.)*\\\""
 
 #define VAL_FIELD_START "^[ \t]*(" FIELD_NAME_RE ")[ \t]*=[ \t]*"
 #define VAL_FIELD_END "[ \t]*$"
 
-#define FIELD_TITLE_RE "^[ \t]*\\[([^\"\\[\\]]+)\\][ \t]*$"
+#define FIELD_TITLE_RE "^[ \t]*\\[([^\\[\\]]+)\\][ \t]*$"
 #define FIELD_NOVAL_RE "^[ \t]*(" FIELD_NAME_RE ")[ \t]*" \
     "(int|float|string|arr_int|arr_float|arr_string)" VAL_FIELD_END
 
@@ -337,9 +337,14 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "import re\n"\
 "import sys\n"\
 "\n"\
-"FIELD_INT_RE = '" FIELD_INT_RE "'.encode('string_escape')\n"\
-"FIELD_FLT_RE = '" FIELD_FLT_RE "'.encode('string_escape')\n"\
-"FIELD_STR_RE = '" FIELD_STR_RE "'.encode('string_escape')\n"\
+"field_int_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*(\\-?[0-9]+)[ \\t]*$')\n"\
+"field_flt_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*(\\-?[0-9]*\\.[0-9]+)[ \\t]*$')\n"\
+"field_str_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*(\\\"(?:[^\\\"\\\\]|\\\\.)*\\\")[ \\t]*$')\n"\
+"fielt_int_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[([ \\t]*\\-?[0-9]+(?:[ \\t]+\\-?[0-9]+)*)[ \\t]*\\][ \\t]*$')\n"\
+"field_flt_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[[ \\t]*(\\-?[0-9]*\\.[0-9]+(?:[ \\t]+\\-?[0-9]*\\.[0-9]+)*)[ \\t]*\\][ \\t]*$')\n"\
+"field_str_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[[ \\t]*(\\\"(?:[^\\\"\\\\]|\\\\.)*\\\"(?:[ \\t]+\\\"(?:[^\\\"\\\\]|\\\\.)*\\\")*)[ \\t]*\\][ \\t]*$')\n"\
+"empty_line_re = re.compile(r'^[ \\t]*$')\n"\
+"field_title_re = re.compile(r'^[ \\t]*\\[([^\\[\\]]+)\\][ \\t]*$')\n"\
 "\n"
 
 
