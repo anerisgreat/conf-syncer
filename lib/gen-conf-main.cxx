@@ -132,6 +132,10 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "                        case(' '):\n"\
 "                        case('\\t'):\n"\
 "                            break;\n"\
+"                        case('\\n'):\n"\
+"                        case('\\0'):\n"\
+"                            reader_state = post_val;\n"\
+"                        break;\n"\
 "                        case('['):\n"\
 "                            reader_state = title;\n"\
 "                            break;\n"\
@@ -230,7 +234,9 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "                        case(' '):\n"\
 "                        case('\\t'):\n"\
 "                        case('\\n'):\n"\
+"                        case('\\0'):\n"\
 "                            load_stupid_param(namebuff, valbuff, line, linen);\n"\
+"                            reader_state = post_val;\n"\
 "                            break;\n"\
 "                        default:\n"\
 "                            if((c >= '0' && c <= '9') ||\n"\
@@ -258,6 +264,7 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "                            load_stupid_param(namebuff, valbuff, line, linen);\n"\
 "                            break;\n"\
 "                        case('\\n'):\n"\
+"                        case('\\0'):\n"\
 "                            msg_and_exit(\"Bad line!\", line, linen);\n"\
 "                            break;\n"\
 "                        default:\n"\
@@ -305,6 +312,7 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "                        case(' '):\n"\
 "                        case('\\t'):\n"\
 "                        case('\\n'):\n"\
+"                        case('\\0'):\n"\
 "                            break;\n"\
 "                        default:\n"\
 "                            msg_and_exit(\"Bad line!\", line, linen);\n"\
@@ -312,6 +320,9 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "                    break;\n"\
 "                default: break;\n"\
 "            }\n"\
+"        }\n"\
+"        if(reader_state != pre_name && reader_state != post_val){\n"\
+"            msg_and_exit(\"Bad line!\", line, linen);\n"\
 "        }\n"\
 "    }\n"\
 "    fclose(fp);\n"\
@@ -677,6 +688,7 @@ void get_parse_lines(conf_field cfield, std::string alias,
                     << INDENT_4 << "else{\n"\
                     << INDENT_5 << "app_and_incr_escaped(tmp_chr_buff,"
                         << "&tmp_chr_index, valbuff[i]);\n"\
+                    << INDENT_5 << "escaped = 0;\n"\
                     << INDENT_4 << "}\n"\
                     << INDENT_3 << "}\n"\
                     << INDENT_3 << "else{\n"\
@@ -693,6 +705,9 @@ void get_parse_lines(conf_field cfield, std::string alias,
                     << INDENT_5 << "in_str = 1;\n"\
                     << INDENT_4 << "}\n"\
                     << INDENT_3 << "}\n"\
+                    << INDENT_2 << "}\n"\
+                    << INDENT_2 << "if(in_str){\n"\
+                    << INDENT_3 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
                     << INDENT_2 << "}\n"\
                     << INDENT_2 << alias << "." << cfield.field_name\
                         << " = malloc(sizeof(char*) * tmp_index);\n"\
