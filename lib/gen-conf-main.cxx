@@ -296,7 +296,10 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "                            break;\n"\
 "                        case(']'):\n"\
 "                            reader_state = post_val;\n"\
-"                            load_stupid_param(namebuff, valbuff, line, linen);\n"\
+"                            load_stupid_param(namebuff,\n"\
+"                                valbuff,\n"\
+"                                line, \n"\
+"                                linen);\n"\
 "                            break;\n"\
 "                        default:\n"\
 "                            app_and_incr(valbuff, &valbuff_index, c);\n"\
@@ -330,6 +333,16 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "        free(line);\n"\
 "}\n"
 
+#define PY_GLOBAL_HEADER \
+"import re\n"\
+"import sys\n"\
+"\n"\
+"FIELD_INT_RE = '" FIELD_INT_RE "'.encode('string_escape')\n"\
+"FIELD_FLT_RE = '" FIELD_FLT_RE "'.encode('string_escape')\n"\
+"FIELD_STR_RE = '" FIELD_STR_RE "'.encode('string_escape')\n"\
+"\n"
+
+
 std::string get_file_name_no_extention(const std::string& s) {
     char sep = '/';
 
@@ -353,6 +366,7 @@ struct conf_file_in{
         std::string src_file;
         std::string dst_file;
         bool is_managed;
+        bool is_python;
         std::string alias;
 
         conf_file_in(std::string in_str){
@@ -371,6 +385,9 @@ struct conf_file_in{
             else{
                 alias = in_str.substr(split_c+1, (in_str.size() - split_c - 1));
             }
+            is_python = (
+                in_str.substr(
+                    split_d+1, (in_str.size() - split_d - 1)).compare("TRUE") == 0);
         }
 
         bool operator<(const conf_file_in& comp){
@@ -733,22 +750,27 @@ struct conf_file_out{
         std::string alias;
         std::vector<conf_field> file_fields;
         std::string conf_full_path;
+        bool is_python;
 
         conf_file_out(std::string file, 
                 std::string alias_str, 
-                std::vector<conf_field> fields):
+                std::vector<conf_field> fields,
+                bool is_make_python):
             is_managed(true),
             alias(alias_str),
             file_fields(fields),
-            conf_full_path(file)
+            conf_full_path(file),
+            is_python(is_make_python)
         {}
 
         conf_file_out(std::string file, 
-                std::string alias_str):
+                std::string alias_str,
+                bool is_make_python):
             is_managed(false),
             alias(alias_str),
             conf_full_path(file),
-            file_fields()
+            file_fields(),
+            is_python(is_make_python)
         {}
 
         void get_conf_str(std::stringstream& outs){
@@ -806,6 +828,52 @@ struct conf_file_out{
             outs << "int " << alias << "_load_from_path(const char* path){\n";
             outs << _LOAD_FROM_PATH_STR_A << alias << _LOAD_FROM_PATH_STR_B;
         }
+    }
+    void get_py_str(std::stringstream& outs){
+        outs << alias << "_path = \"" << conf_full_path << "\"\n";
+        /*
+        if(is_managed){
+            for(auto field_iter = file_fields.begin();
+                    field_iter != file_fields.end();
+                    ++field_iter)
+            {
+                field_iter->get_header_struct_str(outs);
+            }
+
+            outs << "}" << alias << ";\n";
+
+            outs << "field_type " << alias << \
+                "_get_field_type(char* namebuff){\n";
+            for(auto field_iter = file_fields.begin();
+                    field_iter != file_fields.end();
+                    ++field_iter)
+            {
+                field_iter->get_field_type_str(outs);
+            }
+
+            outs << INDENT_1 << "printf(\"Invalid field name!\\n" << \
+                                "\%s\\n\", namebuff);\n" << \
+                                INDENT_1 << "exit(EXIT_FAILURE);\n";
+
+            outs << "}\n";
+
+            outs << "void load_" << alias << "_param(char* namebuff,\n"\
+                << INDENT_1 << "char* valbuff,\n"\
+                << INDENT_1 << "char* line,\n"\
+                << INDENT_1 << "int linen)\n"\
+                << "{\n";
+            for(auto field_iter = file_fields.begin();
+                    field_iter != file_fields.end();
+                    ++field_iter)
+            {
+                get_parse_lines(*field_iter, alias, outs);
+            }
+            outs << "}\n";
+
+            outs << "int " << alias << "_load_from_path(const char* path){\n";
+            outs << _LOAD_FROM_PATH_STR_A << alias << _LOAD_FROM_PATH_STR_B;
+        }
+        */
     }
 };
 
@@ -1026,23 +1094,29 @@ std::vector<conf_file_out> process_conf_file(char* conf_fname){
     while(start_iter != conf_entries.end()){
         //Group managed entries
         if(start_iter->is_managed){
+            bool is_python = start_iter->is_python;
             std::vector<conf_file_in>::iterator end_iter = start_iter + 1;
             while(end_iter != conf_entries.end() && 
                 (*end_iter).dst_file == (*start_iter).dst_file)
-                {++end_iter;}
+            {
+                ++end_iter;
+                is_python = is_python | end_iter->is_python;
+            }
             std::vector<conf_field> fields = 
                 process_files_for_dest(start_iter, end_iter);
 
             conf_file_out to_add(start_iter->dst_file,
                     start_iter->alias,
-                    fields);
+                    fields,
+                    is_python);
             files_to_include.push_back(to_add);
 
             start_iter = end_iter;
         }
         else{
             conf_file_out to_add(start_iter->dst_file,
-                    start_iter->alias);
+                    start_iter->alias,
+                    start_iter->is_python);
             files_to_include.push_back(to_add);
             //Assume no two unmanaged files with same dst one after another
                 //(input sanitized by CMake)
@@ -1055,14 +1129,8 @@ std::vector<conf_file_out> process_conf_file(char* conf_fname){
 
 void generate_outputs(std::vector<conf_file_out> conf_files,
         std::string out_header_fname,
-        std::string out_source_fname)
+        std::string out_py_fname)
 {
-    //Generate configuration files
-    //Write headers
-        //Make structure
-        //Fill with fields
-        //
-
     //Generating configuration files
     for(auto file_iter = conf_files.begin();
             file_iter != conf_files.end();
@@ -1095,11 +1163,20 @@ void generate_outputs(std::vector<conf_file_out> conf_files,
     headeroutstream << headerbuff.rdbuf();
     headeroutstream.close();
 
-    FILE* fout_source = fopen(out_source_fname.c_str(), "w");
-    if (!fout_source )
-        exit(EXIT_FAILURE);
+    std::ofstream pyoutstream;
+    std::stringstream pybuff;
+    pybuff << PY_GLOBAL_HEADER;
 
-    fclose(fout_source);
+    for(auto file_iter = conf_files.begin();
+            file_iter != conf_files.end();
+            ++file_iter)
+    {
+        file_iter->get_py_str(pybuff);
+    }
+
+    pyoutstream.open(out_py_fname);
+    pyoutstream << pybuff.rdbuf();
+    pyoutstream.close();
 }
 
 int main(int argc, char** argv)

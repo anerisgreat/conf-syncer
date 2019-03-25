@@ -4,7 +4,7 @@ option(CONF_OVERRIDE "Override configuration defaults")
 
 #macro(add_conf FNAME DSTDIR CONFPROJ)
 macro(add_conf)
-    set(_OPTS MANAGED UNMANAGED)
+    set(_OPTS MANAGED UNMANAGED PYTHON)
     set(_ONEVALARGS SRC DSTDIR CONF_PROJ PATH_ALIAS)
     set(_MULTIVALARGS)
     cmake_parse_arguments(ADD_CONF
@@ -79,7 +79,7 @@ macro(add_conf)
     project(${CONFPROJ}-${CONF_SRC})
 
     #Appending File name and necessary info to list for conf generators
-    set(CONF_LST "${CONF_LST}${CONF_SRC}:${CONF_DST}:${ADD_CONF_MANAGED}:${ADD_CONF_PATH_ALIAS}\n")
+    set(CONF_LST "${CONF_LST}${CONF_SRC}:${CONF_DST}:${ADD_CONF_MANAGED}:${ADD_CONF_PATH_ALIAS}:${ADD_CONF_PYTHON}\n")
     set(${CONFPROJ}_TXT_FILE 
         "${WORK_DIR}/config.txt")
     file(WRITE ${${CONFPROJ}_TXT_FILE} "${CONF_LST}")
@@ -123,13 +123,14 @@ macro(add_conf)
         #The command to generate the configuration files
         add_custom_command(OUTPUT 
                 ${${CONFPROJ}_CONF_SRC_FNAME}.h
-                ${${CONFPROJ}_CONF_SRC_FNAME}.c
+                "${${CONFPROJ}_CONF_SRC_FNAME}/__init__.py"
             COMMAND ${${CONFPROJ}_CONF_GEN}
                 "${${CONFPROJ}_CONF_SRC_FNAME}.h"
-                "${${CONFPROJ}_CONF_SRC_FNAME}.c"
+                "${${CONFPROJ}_CONF_SRC_FNAME}/__init__.py"
                 "${${CONFPROJ}_TXT_FILE}"
             DEPENDS ${${CONFPROJ}_CONF_GEN}
             WORKING_DIRECTORY ${WORK_DIR})
+        file(WRITE ${${CONFPROJ}_CONF_SRC_FNAME}.c "#include <${CONFPROJ}.h>")
 
         #The configuration project to be linked against
         project(${CONFPROJ} C CXX)
@@ -137,6 +138,8 @@ macro(add_conf)
         set(${PROJECT_NAME}_INCLUDE_DIR
             "${WORK_DIR}" CACHE TYPE STRING)
 
+        #Generating fake source file
+            #TODO: GET RID OF IT
         #Adding the previously generated source files
         add_library(${PROJECT_NAME} STATIC
                 ${${CONFPROJ}_CONF_SRC_FNAME}.h
@@ -149,6 +152,12 @@ macro(add_conf)
             ${${PROJECT_NAME}_INCLUDE_DIR}
             PRIVATE "${CMAKE_SOURCE_DIR}")
         SET(${CONFPROJ} ON)
+    endif()
+    if(${ADD_CONF_PYTHON} STREQUAL "TRUE")
+        if(NOT ${CONFPROJ}_PYTHON)
+            file(MAKE_DIRECTORY  "${${CONFPROJ}_CONF_SRC_FNAME}")
+            SET(${CONFPROJ}_PYTHON ON)
+        endif()
     endif()
 endmacro()
 
