@@ -566,21 +566,6 @@ void get_parse_lines(conf_field cfield, std::string alias,
                     << INDENT_3 << "}\n"\
                     << INDENT_3 << "else{\n"\
                     << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9'){\n"\
-                    << INDENT_5 << "app_and_incr(tmp_chr_buff,"
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_5 << "in_num = 1;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << " = malloc(sizeof(int) * tmp_index);\n"\
-                    << INDENT_2 << "for(int i = 0; i < tmp_index; i++){\n"\
-                    << INDENT_3 << alias << "." << cfield.field_name\
-                        << "[i] = tmp_buff[i];\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << "_nelements = tmp_index;\n";
-                break;
             case field_type::arrfltf:
                 outs << INDENT_2 << "float tmp_buff[128];\n"\
                     << INDENT_2 << "int tmp_index = 0;\n"\
@@ -657,14 +642,13 @@ void get_parse_lines(conf_field cfield, std::string alias,
                     << INDENT_2 << "for(int i=0; i<strlen(valbuff)+1; ++i){\n"\
                     << INDENT_3 << "if(in_str){\n"\
                     << INDENT_4 << "if(!escaped){\n"\
-                    << INDENT_5 << "if(valbuff[i] == '\\\"'){\n"\
-                    << INDENT_6 << "in_str = 0;\n"\
-                    << INDENT_6 << "tmp_buff[tmp_index] = "\
+                    << INDENT_5 << "if(valbuff[i] == '\"'){\n"\
+                    << INDENT_6 << "in_str = false;\n"\
+                    << INDENT_6 << "tmp_buff[i] = "\
                         << "malloc(sizeof(char)*(tmp_chr_index + 1));\n"\
-                    << INDENT_6 << "strcpy(tmp_buff[tmp_index], "\
+                    << INDENT_6 << "strcpy(tmp_buff[tmp_buff_index], "\
                         << "tmp_chr_buff);\n"\
                     << INDENT_6 << "tmp_chr_index = 0;\n"\
-                    << INDENT_6 << "tmp_index++;\n"\
                     << INDENT_5 << "}\n"\
                     << INDENT_5 << "else if(valbuff[i] != '\\\\'){\n"\
                     << INDENT_6 << "app_and_incr(tmp_chr_buff,"
@@ -675,22 +659,8 @@ void get_parse_lines(conf_field cfield, std::string alias,
                     << INDENT_5 << "}\n"\
                     << INDENT_4 << "}\n"\
                     << INDENT_4 << "else{\n"\
-                    << INDENT_5 << "app_and_incr_escaped(tmp_chr_buff,"
+                    << INDENT_6 << "app_and_incr_escaped(tmp_chr_buff,"
                         << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_3 << "else{\n"\
-                    << INDENT_4 << "if(valbuff[i] != ' ' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\t' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\n' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\0' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\\"'\n"\
-                    << INDENT_5 << ")\n"\
-                    << INDENT_4 << "{\n"\
-                    << INDENT_5 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "else if(valbuff[i] == '\\\"'){\n"\
-                    << INDENT_5 << "in_str = 1;\n"\
                     << INDENT_4 << "}\n"\
                     << INDENT_3 << "}\n"\
                     << INDENT_2 << "}\n"\
@@ -701,7 +671,7 @@ void get_parse_lines(conf_field cfield, std::string alias,
                         << "[i] = malloc(strlen(tmp_buff[i] + 1));\n"\
                     << INDENT_3 << "strcpy("\
                         << alias << "." << cfield.field_name << "[i], "\
-                        << "tmp_buff[i]);\n"\
+                        << "tmp_buff[i])\n"\
                     << INDENT_3 << "free(tmp_buff[i]);\n"\
                     << INDENT_2 << "}\n"\
                     << INDENT_2 << alias << "." << cfield.field_name\
