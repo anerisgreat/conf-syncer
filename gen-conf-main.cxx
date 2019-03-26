@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
+#include <cmath>
 
 //__________REGEX______________________________________________________________
 #define FIELD_NAME_RE "[a-zA-Z_]+[a-zA-Z0-9\\-_]*"
@@ -483,6 +484,11 @@ struct conf_field{
                     outs << field_name << " = " << default_int; break;
                 case field_type::fltf :
                     outs << field_name << " = " << default_float; break;
+                    double integral;
+                    if(std::modf(default_float, &integral) == 0){
+                        outs << ".0";
+                    }
+
                 case field_type::strf:
                     outs << field_name << " = \"" << default_str \
                         << "\""; break;
@@ -505,7 +511,12 @@ struct conf_field{
                                 iter != default_flt_arr.end();
                                 ++iter)
                         {
-                            outs << *iter << ' ';
+                            outs << *iter;
+                            double integral;
+                            if(std::modf(*iter, &integral) == 0){
+                                outs << ".0";
+                            }
+                            outs << ' ';
                         }
                     }
                     outs << ']';

@@ -93,6 +93,7 @@ macro(add_conf)
                 message(FATAL_ERROR "Configuration file declared as both "
                     "managed and unmanaged!")
             endif()
+            message("SHOULD INSTALL")
             install(FILES ${WORK_DIR}/${CONF_FNAME}
                 DESTINATION ${ADD_CONF_DSTDIR})
             SET(${CONF_DST}_INSTALLED "MANAGED")
@@ -134,7 +135,7 @@ macro(add_conf)
         file(WRITE ${${CONFPROJ}_CONF_SRC_FNAME}.c "#include <${CONFPROJ}.h>")
 
         add_custom_target(
-            ALWAYSER ALL
+            ${CONFPROJ}_ALWAYSER ALL
             DEPENDS
                 ${${CONFPROJ}_CONF_SRC_FNAME}.useless.h
             )
@@ -147,6 +148,7 @@ macro(add_conf)
 
         #Generating fake source file
             #TODO: GET RID OF IT
+            #Though it looks like it is needed
         #Adding the previously generated source files
         add_library(${PROJECT_NAME}
             STATIC
@@ -165,6 +167,8 @@ macro(add_conf)
     if(${ADD_CONF_PYTHON} STREQUAL "TRUE")
         if(NOT ${CONFPROJ}_PYTHON)
             file(MAKE_DIRECTORY  "${${CONFPROJ}_CONF_SRC_FNAME}")
+            configure_file(${CONF_SYNCER_DIR}/setup.py.in ${WORK_DIR}/setup.py)
+            install(CODE "execute_process(COMMAND python setup.py install WORKING_DIRECTORY ${WORK_DIR})")
             SET(${CONFPROJ}_PYTHON ON)
         endif()
     endif()

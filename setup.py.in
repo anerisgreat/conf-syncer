@@ -1,0 +1,8 @@
+from distutils.core import setup
+setup(
+    name = '${CONFPROJ}',
+    version = '0.0',
+    author = 'conf-syncer for ${CONFPROJ}',
+    description = 'Configuration file parser for ${CONFPROJ}',
+    packages = ['${CONFPROJ}']
+    )
