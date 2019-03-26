@@ -625,7 +625,7 @@ struct conf_field{
                     case field_type::fltf:
                         outs << "float(ffltm.group(2))"; break;
                     case field_type::strf:
-                        outs << "fstrm.group(2)"; break;
+                        outs << "fstrm.group(2)[1:len(fstrm.group(2)) - 1].decode('string-escape')"; break;
                     case field_type::arrintf:
                         outs << "[int(match) for match in "\
                             << "re.compile(r'\\-?[0-9]+')"\
@@ -635,8 +635,8 @@ struct conf_field{
                             << "re.compile(r'\\-?[0-9]*.[0-9]+')"\
                             << ".findall(farrfltm.group(2))]"; break;
                     case field_type::arrstrf:
-                        outs << "[match[1:len(match)-1] for match in "\
-                            << "re.compile(r'\\\"?:[^\\\"\\\\]|\\\\.*\\\"')"\
+                        outs << "[match[1:len(match)-1].decode('string-escape') for match in "\
+                            << "re.compile(r'\\\"(?:[^\\\"\\\\]|\\\\.)*\\\"')"\
                             << ".findall(farrstrm.group(2))]"; break;
                 }
 
