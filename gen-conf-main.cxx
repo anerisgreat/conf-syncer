@@ -682,11 +682,15 @@ void get_parse_lines(conf_field cfield, std::string alias,
                     << INDENT_4 << "valbuff[i] != '\\t' && \n"\
                     << INDENT_4 << "valbuff[i] != '\\n' && \n"\
                     << INDENT_4 << "valbuff[i] != '\\0' && \n"\
+                    << INDENT_4 << "valbuff[i] != '-' && \n"\
                     << INDENT_4 << "!(valbuff[i] >= '0' && valbuff[i]<='9'))\n"\
                     << INDENT_3 << "{\n"\
                     << INDENT_4 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
                     << INDENT_3 << "}\n"\
                     << INDENT_3 << "if(in_num){\n"\
+                    << INDENT_4 << "if(valbuff[i] == '-'){\n"\
+                    << INDENT_5 << "msg_and_exit(\"bad line!\",line,linen);\n"\
+                    << INDENT_4 << "}\n"\
                     << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9'){\n"\
                     << INDENT_5 << "app_and_incr(tmp_chr_buff,"
                         << "&tmp_chr_index, valbuff[i]);\n"\
@@ -700,7 +704,8 @@ void get_parse_lines(conf_field cfield, std::string alias,
                     << INDENT_4 << "}\n"\
                     << INDENT_3 << "}\n"\
                     << INDENT_3 << "else{\n"\
-                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9'){\n"\
+                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9'\n"\
+                    << INDENT_5 << "|| valbuff[i] == '-'){\n"\
                     << INDENT_5 << "app_and_incr(tmp_chr_buff,"
                         << "&tmp_chr_index, valbuff[i]);\n"\
                     << INDENT_5 << "in_num = 1;\n"\
@@ -729,11 +734,15 @@ void get_parse_lines(conf_field cfield, std::string alias,
                     << INDENT_4 << "valbuff[i] != '\\n' && \n"\
                     << INDENT_4 << "valbuff[i] != '\\0' && \n"\
                     << INDENT_4 << "valbuff[i] != '.' && \n"\
+                    << INDENT_4 << "valbuff[i] != '-' && \n"\
                     << INDENT_4 << "!(valbuff[i] >= '0'&&valbuff[i]<='9'))\n"\
                     << INDENT_3 << "{\n"\
                     << INDENT_4 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
                     << INDENT_3 << "}\n"\
                     << INDENT_3 << "if(in_num){\n"\
+                    << INDENT_4 << "if(valbuff[i] == '-'){\n"\
+                    << INDENT_5 << "msg_and_exit(\"bad line!\",line,linen);\n"\
+                    << INDENT_4 << "}\n"\
                     << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9' ||"\
                         <<  "valbuff[i] == '.'){\n"\
                     << INDENT_5 << "app_and_incr(tmp_chr_buff,"\
@@ -758,7 +767,7 @@ void get_parse_lines(conf_field cfield, std::string alias,
                     << INDENT_3 << "}\n"\
                     << INDENT_3 << "else{\n"\
                     << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9' ||"\
-                        <<  "valbuff[i] == '.'){\n"\
+                        <<  "valbuff[i] == '.' || valbuff[i] == '-'){\n"\
                     << INDENT_5 << "app_and_incr(tmp_chr_buff,"
                         << "&tmp_chr_index, valbuff[i]);\n"\
                     << INDENT_5 << "if(valbuff[i] == '.'){\n"\
