@@ -118,12 +118,13 @@ macro(add_conf)
 
         #Generating the executable for the generator to be caled at MAKE
         add_executable(${${CONFPROJ}_CONF_GEN}
-            ${CONF_SYNCER_DIR}/lib/gen-conf-main.cxx)
+            ${CONF_SYNCER_DIR}/gen-conf-main.cxx)
 
         #The command to generate the configuration files
         add_custom_command(OUTPUT 
                 ${${CONFPROJ}_CONF_SRC_FNAME}.h
-                "${${CONFPROJ}_CONF_SRC_FNAME}/__init__.py"
+                #EMPTY FILES ASSURES WE WILL ALWAYS RUN
+                ${${CONFPROJ}_CONF_SRC_FNAME}.useless.h
             COMMAND ${${CONFPROJ}_CONF_GEN}
                 "${${CONFPROJ}_CONF_SRC_FNAME}.h"
                 "${${CONFPROJ}_CONF_SRC_FNAME}/__init__.py"
@@ -131,6 +132,12 @@ macro(add_conf)
             DEPENDS ${${CONFPROJ}_CONF_GEN}
             WORKING_DIRECTORY ${WORK_DIR})
         file(WRITE ${${CONFPROJ}_CONF_SRC_FNAME}.c "#include <${CONFPROJ}.h>")
+
+        add_custom_target(
+            ALWAYSER ALL
+            DEPENDS
+                ${${CONFPROJ}_CONF_SRC_FNAME}.useless.h
+            )
 
         #The configuration project to be linked against
         project(${CONFPROJ} C CXX)
@@ -141,9 +148,11 @@ macro(add_conf)
         #Generating fake source file
             #TODO: GET RID OF IT
         #Adding the previously generated source files
-        add_library(${PROJECT_NAME} STATIC
-                ${${CONFPROJ}_CONF_SRC_FNAME}.h
-                ${${CONFPROJ}_CONF_SRC_FNAME}.c)
+        add_library(${PROJECT_NAME}
+            STATIC
+                #${${CONFPROJ}_CONF_SRC_FNAME}.h //THIS BREAKS IT
+                ${${CONFPROJ}_CONF_SRC_FNAME}.c
+            )
 
         #Making sure the include directories are in order
         #NOTE: Maybe make seperate include directories?
