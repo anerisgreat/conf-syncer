@@ -340,18 +340,23 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "field_int_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*(\\-?[0-9]+)[ \\t]*$')\n"\
 "field_flt_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*(\\-?[0-9]*\\.[0-9]+)[ \\t]*$')\n"\
 "field_str_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*(\\\"(?:[^\\\"\\\\]|\\\\.)*\\\")[ \\t]*$')\n"\
-"fielt_int_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[([ \\t]*\\-?[0-9]+(?:[ \\t]+\\-?[0-9]+)*)[ \\t]*\\][ \\t]*$')\n"\
+"field_int_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[([ \\t]*\\-?[0-9]+(?:[ \\t]+\\-?[0-9]+)*)[ \\t]*\\][ \\t]*$')\n"\
 "field_flt_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[[ \\t]*(\\-?[0-9]*\\.[0-9]+(?:[ \\t]+\\-?[0-9]*\\.[0-9]+)*)[ \\t]*\\][ \\t]*$')\n"\
 "field_str_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[[ \\t]*(\\\"(?:[^\\\"\\\\]|\\\\.)*\\\"(?:[ \\t]+\\\"(?:[^\\\"\\\\]|\\\\.)*\\\")*)[ \\t]*\\][ \\t]*$')\n"\
 "empty_line_re = re.compile(r'^[ \\t]*$')\n"\
-"field_title_re = re.compile(r'^[ \\t]*\\[([^\\[\\]]+)\\][ \\t]*$')\n"
+"field_title_re = re.compile(r'^[ \\t]*\\[([^\\[\\]]+)\\][ \\t]*$')\n"\
+"\n"\
+"class confobj(object):\n"\
+"    pass\n"\
+"\n"
 
 //def NAME_load_from_path()...
-#define PY_LOAD_FROM_PATH_A
-"_load_from_path(path):\n"
+#define PY_LOAD_FROM_PATH_A \
+"_load_from_path(path):\n"\
 "    fread = open(path, 'r')\n"\
-"    retval = object()\n"\
+"    retval = confobj()\n"\
 "    linestr = fread.readline()\n"\
+"    linen = 0\n"\
 "    while(linestr != ''):\n"\
 "        fintm = field_int_re.match(linestr)\n"\
 "        ffltm = field_flt_re.match(linestr)\n"\
@@ -362,14 +367,25 @@ static std::regex comp_empty_line_re(EMPTY_LINE_RE);
 "        femptym = empty_line_re.match(linestr)\n"\
 "        ftitlem = field_title_re.match(linestr)\n"\
 "\n"\
-"        isintf = fintm.groups != None\n"\
-"        isfltf = ffltm.groups != None\n"\
-"        isstrf = fstrm.groups != None\n"\
-"        isarrintm = farrintm.groups != None\n"\
-"        isarrfltm = farrfltm.groups != None\n"\
-"        isarrstrm = farrstrm.groups != None\n"\
-"        isemptym = femptym.groups != None\n"\
-"        istitlem = ftitlem.groups != None\n"\
+"        isintf = fintm != None\n"\
+"        isfltf = ffltm != None\n"\
+"        isstrf = fstrm != None\n"\
+"        isarrintf = farrintm != None\n"\
+"        isarrfltf = farrfltm != None\n"\
+"        isarrstrf = farrstrm != None\n"\
+"        isemptyf = femptym != None\n"\
+"        istitlef = ftitlem != None\n"\
+"\n"\
+"        if(isemptyf or istitlef):\n"\
+"           pass\n"\
+"\n"
+#define PY_LOAD_FROM_PATH_B \
+"        else:\n"\
+"            raise ValueError('Bad line one line #' + \n"\
+"                str(linen) + ': ' + linestr)\n"\
+"        linen = linen + 1\n"\
+"        linestr = fread.readline()\n"\
+"    return retval\n"\
 "\n"
 //FIELDS
 
@@ -546,17 +562,17 @@ struct conf_field{
         void get_header_struct_str(std::stringstream& outs){
             switch (type){
                 case field_type::intf:
-                    outs << INDENT_1 << "int " << field_name << ";\n"; break;
+                    outs << INDENT_1 << "int " << field_name << ";\n";break;
                 case field_type::fltf:
-                    outs << INDENT_1 << "float " << field_name << ";\n"; break;
+                    outs << INDENT_1 << "float " << field_name << ";\n";break;
                 case field_type::strf:
-                    outs << INDENT_1 << "char* " << field_name << ";\n"; break;
+                    outs << INDENT_1 << "char* " << field_name << ";\n";break;
                 case field_type::arrintf:
-                    outs << INDENT_1 << "int* " << field_name << ";\n"; break;
+                    outs << INDENT_1 << "int* " << field_name << ";\n";break;
                 case field_type::arrfltf:
-                    outs << INDENT_1 << "float* " << field_name << ";\n"; break;
+                    outs << INDENT_1 << "float* " << field_name << ";\n";break;
                 case field_type::arrstrf:
-                    outs << INDENT_1 << "char** " << field_name << ";\n"; break;
+                    outs << INDENT_1 << "char** " << field_name << ";\n";break;
                 default: break;
             }
 
@@ -564,6 +580,67 @@ struct conf_field{
                     type == field_type :: arrstrf)
             {
                 outs << INDENT_1 << "size_t " << field_name << "_nelements;\n";
+            }
+        }
+
+        void get_py_str(std::stringstream& outs){
+            if(type != field_type::title){
+                outs << INDENT_2 << "elif(";
+                switch (type){
+                    case field_type::intf:
+                        outs << "isintf"; break;
+                    case field_type::fltf:
+                        outs << "isfltf"; break;
+                    case field_type::strf:
+                        outs << "isstrf"; break;
+                    case field_type::arrintf:
+                        outs << "isarrintf"; break;
+                    case field_type::arrfltf:
+                        outs << "isarrfltf"; break;
+                    case field_type::arrstrf:
+                        outs << "isarrstrf"; break;
+                    default: break;
+                }
+                outs << " and ";
+                switch (type){
+                    case field_type::intf:
+                        outs << "fintm"; break;
+                    case field_type::fltf:
+                        outs << "ffltm"; break;
+                    case field_type::strf:
+                        outs << "fstrm"; break;
+                    case field_type::arrintf:
+                        outs << "farrintm"; break;
+                    case field_type::arrfltf:
+                        outs << "farrfltm"; break;
+                    case field_type::arrstrf:
+                        outs << "farrstrm"; break;
+                    default: break;
+                }
+                outs << ".group(1) == '" << field_name << "'):\n";
+                outs << INDENT_3 << "retval." << field_name << " = ";
+                switch (type){
+                    case field_type::intf:
+                        outs << "int(fintm.group(2))"; break;
+                    case field_type::fltf:
+                        outs << "float(ffltm.group(2))"; break;
+                    case field_type::strf:
+                        outs << "fstrm.group(2)"; break;
+                    case field_type::arrintf:
+                        outs << "[int(match) for match in "\
+                            << "re.compile(r'\\-?[0-9]+')"\
+                            << ".findall(farrintm.group(2))]"; break;
+                    case field_type::arrfltf:
+                        outs << "[float(match) for match in "\
+                            << "re.compile(r'\\-?[0-9]*.[0-9]+')"\
+                            << ".findall(farrfltm.group(2))]"; break;
+                    case field_type::arrstrf:
+                        outs << "[match[1:len(match)-1] for match in "\
+                            << "re.compile(r'\\\"?:[^\\\"\\\\]|\\\\.*\\\"')"\
+                            << ".findall(farrstrm.group(2))]"; break;
+                }
+
+                outs << "\n\n";
             }
         }
 };
@@ -859,51 +936,17 @@ struct conf_file_out{
             outs << _LOAD_FROM_PATH_STR_A << alias << _LOAD_FROM_PATH_STR_B;
         }
     }
+
     void get_py_str(std::stringstream& outs){
         outs << alias << "_path = \"" << conf_full_path << "\"\n";
-        /*
-        if(is_managed){
-            for(auto field_iter = file_fields.begin();
-                    field_iter != file_fields.end();
-                    ++field_iter)
-            {
-                field_iter->get_header_struct_str(outs);
-            }
-
-            outs << "}" << alias << ";\n";
-
-            outs << "field_type " << alias << \
-                "_get_field_type(char* namebuff){\n";
-            for(auto field_iter = file_fields.begin();
-                    field_iter != file_fields.end();
-                    ++field_iter)
-            {
-                field_iter->get_field_type_str(outs);
-            }
-
-            outs << INDENT_1 << "printf(\"Invalid field name!\\n" << \
-                                "\%s\\n\", namebuff);\n" << \
-                                INDENT_1 << "exit(EXIT_FAILURE);\n";
-
-            outs << "}\n";
-
-            outs << "void load_" << alias << "_param(char* namebuff,\n"\
-                << INDENT_1 << "char* valbuff,\n"\
-                << INDENT_1 << "char* line,\n"\
-                << INDENT_1 << "int linen)\n"\
-                << "{\n";
-            for(auto field_iter = file_fields.begin();
-                    field_iter != file_fields.end();
-                    ++field_iter)
-            {
-                get_parse_lines(*field_iter, alias, outs);
-            }
-            outs << "}\n";
-
-            outs << "int " << alias << "_load_from_path(const char* path){\n";
-            outs << _LOAD_FROM_PATH_STR_A << alias << _LOAD_FROM_PATH_STR_B;
+        outs << "def " << alias << PY_LOAD_FROM_PATH_A;
+        for(auto iter = file_fields.begin();
+                iter != file_fields.end();
+                ++iter)
+        {
+            iter->get_py_str(outs);
         }
-        */
+        outs << PY_LOAD_FROM_PATH_B;
     }
 };
 
@@ -1073,7 +1116,7 @@ std::vector<conf_field> process_files_for_dest(
             }
             if(!found){
                 std::cout << "The field " << iter->field_name << \
-                    " was defined without value and never redefined with one.";
+                    " was defined without value and never redefined with on.";
                 throw "No default value!";
             }
         }
