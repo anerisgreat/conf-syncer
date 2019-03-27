@@ -643,7 +643,7 @@ struct conf_field{
                             << ".findall(farrintm.group(2))]"; break;
                     case field_type::arrfltf:
                         outs << "[float(match) for match in "\
-                            << "re.compile(r'\\-?[0-9]*.[0-9]+')"\
+                            << "re.compile(r'\\-?[0-9]*\\.[0-9]+')"\
                             << ".findall(farrfltm.group(2))]"; break;
                     case field_type::arrstrf:
                         outs << "[match[1:len(match)-1].decode('string-escape') for match in "\
