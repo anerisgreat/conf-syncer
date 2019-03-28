@@ -631,11 +631,11 @@ std::string get_load_func_str(conf_file_out* cfile){
 "//    for the project ${PROJNAME}\n"\
 "#include <string.h>\n"\
 "#ifdef __cplusplus\n"\
-"#extern \"C\" {\n"\
-"#endif\n"
+"extern \"C\" {\n"\
+"#endif\n\n"
 
 #define CGEN_HEADER_GLOBAL_FOOTER_STR \
-"#ifdef __cplusplus\n"\
+"\n#ifdef __cplusplus\n"\
 "}\n"\
 "#endif\n"
 
@@ -711,6 +711,7 @@ void cgen(std::vector<conf_file_out> conf_files, std::string out_fname)
     {
         headeroutstream << cgen_get_path_str(&*file_iter);
     }
+    headeroutstream << std::endl;
 
     //Structs
     for(auto file_iter = conf_files.begin();
