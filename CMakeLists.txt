@@ -124,15 +124,15 @@ macro(add_conf)
         #The command to generate the configuration files
         add_custom_command(OUTPUT 
                 ${${CONFPROJ}_CONF_SRC_FNAME}.h
+                ${${CONFPROJ}_CONF_SRC_FNAME}.c
                 #EMPTY FILES ASSURES WE WILL ALWAYS RUN
                 ${${CONFPROJ}_CONF_SRC_FNAME}.useless.h
             COMMAND ${${CONFPROJ}_CONF_GEN}
-                "${${CONFPROJ}_CONF_SRC_FNAME}.h"
+                "${${CONFPROJ}_CONF_SRC_FNAME}"
                 "${${CONFPROJ}_CONF_SRC_FNAME}/__init__.py"
                 "${${CONFPROJ}_TXT_FILE}"
             DEPENDS ${${CONFPROJ}_CONF_GEN}
             WORKING_DIRECTORY ${WORK_DIR})
-        file(WRITE ${${CONFPROJ}_CONF_SRC_FNAME}.c "#include <${CONFPROJ}.h>")
 
         add_custom_target(
             ${CONFPROJ}_ALWAYSER ALL

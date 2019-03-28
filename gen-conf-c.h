@@ -1,52 +1,394 @@
-//DEFINES
-#define GLOBAL_HEADER \
-"#include <stdio.h>\n"\
-"#include <stdlib.h>\n"\
-"#include <string.h>\n"\
-"typedef enum {intf, fltf, strf, arrintf, arrfltf, arrstrf} field_type;\n"\
-"void msg_and_exit(char* msg, char* line, int linen){\n"\
-"    printf(\"\%s\", msg);\n"\
-"    printf(\"\\nLine #:%d\\n\%s\\n\", linen, line);\n"\
+#ifndef GEN_CONF_CGEN
+#define GEN_CONF_CGEN
+
+#include "gen-conf-structs.h"
+#include "gen-conf-utils.h"
+
+std::string cgen_field_type_str(field_type ftype){
+    std::string typestr;
+    switch (ftype){ 
+        case field_type::intf:
+        case field_type::arrintf: typestr = "int"; break;
+        case field_type::fltf:
+        case field_type::arrfltf: typestr = "float"; break;
+        case field_type::strf:
+        case field_type::arrstrf: typestr = "char*"; break;
+        default: break;
+    }
+
+    if(ftype == field_type::arrintf ||
+        ftype == field_type::arrfltf ||
+        ftype == field_type::arrstrf)
+    {
+        typestr += '*';
+    }
+    return typestr;
+}
+
+#define CGEN_STRUCT_FIELD_F \
+"    ${TYPESTR} ${FIELDNAME};\n"
+#define CGEN_STRUCT_FIELD_ARRF \
+CGEN_STRUCT_FIELD_F \
+"    size_t ${FIELDNAME}_nelements;\n"
+
+std::string cgen_get_struct_field_str(conf_field* cfield){
+    if(cfield->type == field_type::title)
+        return "";
+    std::map<std::string, std::string> replace_dict;
+    replace_dict["FIELDNAME"] = cfield->field_name;
+    replace_dict["TYPESTR"] = cgen_field_type_str(cfield->type);
+
+    if(cfield->type==field_type::intf ||
+            cfield->type==field_type::fltf ||
+            cfield->type==field_type::strf){
+        return replace_with_val_dict(CGEN_STRUCT_FIELD_F, replace_dict);
+    }
+    else{
+        return replace_with_val_dict(CGEN_STRUCT_FIELD_ARRF, replace_dict);
+    }
+}
+
+#define CGEN_STRUCT_STR \
+"struct ${ALIAS}_struct{\n"\
+"${STRUCT_FIELDS_STR}"\
+"}${ALIAS};\n"
+
+std::string cgen_get_struct_str(conf_file_out* cfile){
+    std::string struct_fields_str = "";
+    for(auto iter = cfile->file_fields.begin();
+            iter != cfile->file_fields.end();
+            ++iter)
+    {
+        struct_fields_str += cgen_get_struct_field_str(&*iter);
+    }
+
+    std::map<std::string, std::string> replace_dict;
+    replace_dict["STRUCT_FIELDS_STR"] = struct_fields_str;
+    replace_dict["ALIAS"] = cfile->alias;
+    return replace_with_val_dict(CGEN_STRUCT_STR, replace_dict);
+}
+
+
+std::string cgen_get_ctypename(field_type ftype){
+    switch (ftype){
+        case field_type::intf:
+            return "intf"; break;
+        case field_type::fltf:
+            return "fltf"; break;
+        case field_type::strf:
+            return "strf"; break;
+        case field_type::arrintf:
+            return "arrintf"; break;
+        case field_type::arrfltf:
+            return "arrfltf"; break;
+        case field_type::arrstrf:
+            return "arrstrf"; break;
+        default: break;
+    }
+}
+
+#define CGEN_GET_FIELD_TYPE_FUNC_FIELD_STR \
+"    if(strcmp(namebuff, \"${FIELDNAME}\") == 0)\n"\
+"        return ${CTYPENAME};\n"
+
+std::string cgen_get_field_type_func_field_str(conf_field* cfield){
+    if(cfield->type == field_type::intf ||
+            cfield->type == field_type::fltf ||
+            cfield->type == field_type::strf ||
+            cfield->type == field_type::arrintf ||
+            cfield->type == field_type::arrfltf ||
+            cfield->type == field_type::arrstrf)
+    {
+        std::map<std::string, std::string> replace_dict;
+        replace_dict["FIELDNAME"] = cfield->field_name;
+        replace_dict["CTYPENAME"] = cgen_get_ctypename(cfield->type);
+        return replace_with_val_dict(CGEN_GET_FIELD_TYPE_FUNC_FIELD_STR, 
+                replace_dict);
+    }
+    return "";
+}
+
+#define CGEN_GET_FIELD_TYPE_FUNC_STR \
+"    field_type ${ALIAS}_get_field_type(char* namebuff){\n"\
+"${GET_FIELD_TYPE_STR}"\
+"    printf(\"Invalid field name!\\n\%s\\n\", namebuff);\n"\
 "    exit(EXIT_FAILURE);\n"\
-"}\n"\
-"\n"\
-"void app_and_incr(char* buff, int* index, char to_append){\n"\
-"    buff[*index] = to_append;\n"\
-"    buff[*index + 1] = \'\\0\';\n"\
-"    (*index)++;\n"\
-"}\n"\
-"void app_and_incr_escaped(char* buff, int* index, char to_append){\n"\
-"    switch(to_append){\n"\
-"        case('n'):\n"\
-"            app_and_incr(buff, index, '\\n');\n"\
-"            break;\n"\
-"        case('\\\"'):\n"\
-"            app_and_incr(buff, index, '\\\"');\n"\
-"            break;\n"\
-"        case('t'):\n"\
-"            app_and_incr(buff, index, '\\t');\n"\
-"            break;\n"\
-"        case('\\\\'):\n"\
-"            app_and_incr(buff, index, '\\\\');\n"\
-"            break;\n"\
-"        case('r'):\n"\
-"            app_and_incr(buff, index, '\\r');\n"\
-"            break;\n"\
-"        case('f'):\n"\
-"            app_and_incr(buff, index, '\\f');\n"\
-"            break;\n"\
-"        default:\n"\
-"            printf(\"Bad escape sequence!\");\n"\
-"            exit(EXIT_FAILURE);\n"\
-"            break;\n"\
-"    }\n"\
 "}\n"
 
-//Preceeded with "int {PROJ NAME}
+std::string cgen_get_field_type_func_str(conf_file_out* cfile){
+    std::string fields_get_type_str = "";
+    for(auto iter = cfile->file_fields.begin();
+            iter != cfile->file_fields.end();
+            ++iter)
+    {
+        fields_get_type_str += cgen_get_field_type_func_field_str(&*iter);
+    }
+    std::map<std::string, std::string> replace_dict;
+    replace_dict["ALIAS"] = cfile->alias;
+    replace_dict["GET_FIELD_TYPE_STR"] = fields_get_type_str;
+    return replace_with_val_dict(CGEN_GET_FIELD_TYPE_FUNC_STR, replace_dict);
+}
 
-//Preceeded with "int {PROJ NAME}
+#define CGEN_PATH_STR \
+"static const char ${ALIAS}_path[] = \"${PATH}\";\n"
 
-#define _LOAD_FROM_PATH_STR_A \
+std::string cgen_get_path_str(conf_file_out* cfile){
+    std::map<std::string, std::string> replace_dict;
+    replace_dict["ALIAS"] = cfile->alias;
+    replace_dict["PATH"] = cfile->conf_full_path;
+
+    return replace_with_val_dict(CGEN_PATH_STR, replace_dict);
+}
+
+#define CGEN_LOAD_PARAM_INT_STR \
+"    if(strcmp(namebuff, \"${FIELDNAME}\") == 0){\n"\
+"        ${ALIAS}.${FIELDNAME}= atoi(valbuff);\n"\
+"    }\n"
+
+#define CGEN_LOAD_PARAM_FLT_STR \
+"    if(strcmp(namebuff, \"${FIELDNAME}\") == 0){\n"\
+"        ${ALIAS}.${FIELDNAME}= atof(valbuff);\n"\
+"    }\n"
+
+#define CGEN_LOAD_PARAM_STR_STR \
+"    if(strcmp(namebuff, \"${FIELDNAME}\") == 0){\n"\
+"        int l = strlen(valbuff);\n"\
+"        ${ALIAS}.${FIELDNAME} = malloc(l + 1);\n"\
+"        strcpy(${ALIAS}.${FIELDNAME}, valbuff);\n"\
+"        ${ALIAS}.${FIELDNAME}[l] = '\\0';\n"\
+"    }\n"
+
+#define CGEN_LOAD_PARAM_ARR_INT_STR \
+"    if(strcmp(namebuff, \"${FIELDNAME}\") == 0){\n"\
+"        int tmp_buff[128];\n"\
+"        int tmp_index = 0;\n"\
+"        char tmp_chr_buff[128];\n"\
+"        int tmp_chr_index = 0;\n"\
+"        int in_num = 0;\n"\
+"        for(int i=0; i<strlen(valbuff)+1; ++i){\n"\
+"            if(valbuff[i] != ' ' && \n"\
+"                valbuff[i] != '\\t' && \n"\
+"                valbuff[i] != '\\n' && \n"\
+"                valbuff[i] != '\\0' && \n"\
+"                valbuff[i] != '-' && \n"\
+"                !(valbuff[i] >= '0' && valbuff[i]<='9'))\n"\
+"            {\n"\
+"                msg_and_exit(\"Bad line!\",line,linen);\n"\
+"            }\n"\
+"            if(in_num){\n"\
+"                if(valbuff[i] == '-'){\n"\
+"                    msg_and_exit(\"Bad line!\",line,linen);\n"\
+"                }\n"\
+"                if(valbuff[i]>='0'&&valbuff[i]<='9'){\n"\
+"                    app_and_incr(tmp_chr_buff,&tmp_chr_index, valbuff[i]);\n"\
+"                }\n"\
+"                else{\n"\
+"                    tmp_buff[tmp_index] = atoi(tmp_chr_buff);\n"\
+"                    tmp_chr_index = 0;\n"\
+"                    tmp_index++;\n"\
+"                    in_num = 0;\n"\
+"                }\n"\
+"            }\n"\
+"            else{\n"\
+"                if(valbuff[i]>='0'&&valbuff[i]<='9'\n"\
+"                    || valbuff[i] == '-'){\n"\
+"                    app_and_incr(tmp_chr_buff,&tmp_chr_index, valbuff[i]);\n"\
+"                    in_num = 1;\n"\
+"                }\n"\
+"            }\n"\
+"        }\n"\
+"        ${ALIAS}.${FIELDNAME} = malloc(sizeof(int) * tmp_index);\n"\
+"        for(int i = 0; i < tmp_index; i++){\n"\
+"            ${ALIAS}.${FIELDNAME}[i] = tmp_buff[i];\n"\
+"        }\n"\
+"        ${ALIAS}.${FIELDNAME}_nelements = tmp_index;\n"\
+"    }\n"
+
+#define CGEN_LOAD_PARAM_ARR_FLT_STR \
+"    if(strcmp(namebuff, \"${FIELDNAME}\") == 0){\n"\
+"        float tmp_buff[128];\n"\
+"        int tmp_index = 0;\n"\
+"        char tmp_chr_buff[128];\n"\
+"        int tmp_chr_index = 0;\n"\
+"        int in_num = 0;\n"\
+"        int after_point = 0;\n"\
+"        for(int i=0; i<strlen(valbuff)+1; ++i){\n"\
+"            if(valbuff[i] != ' ' &&\n"\
+"                valbuff[i] != '\\t' &&\n"\
+"                valbuff[i] != '\\n' &&\n"\
+"                valbuff[i] != '\\0' &&\n"\
+"                valbuff[i] != '.' &&\n"\
+"                valbuff[i] != '-' &&\n"\
+"                !(valbuff[i] >= '0'&&valbuff[i]<='9'))\n"\
+"            {\n"\
+"                msg_and_exit(\"Bad line!\",line,linen);\n"\
+"            }\n"\
+"            if(in_num){\n"\
+"                if(valbuff[i] == '-'){\n"\
+"                    msg_and_exit(\"Bad line!\",line,linen);\n"\
+"                }\n"\
+"                if(valbuff[i]>='0'&&valbuff[i]<='9' ||valbuff[i] == '.'){\n"\
+"                    app_and_incr(tmp_chr_buff,&tmp_chr_index, valbuff[i]);\n"\
+"                    if(valbuff[i] == '.'){\n"\
+"                        if(after_point){\n"\
+"                            msg_and_exit(\"Bad line!\",line,linen);\n"\
+"                        }\n"\
+"                        else{\n"\
+"                            after_point=1;\n"\
+"                        }\n"\
+"                    }\n"\
+"                }\n"\
+"                else{\n"\
+"                    tmp_buff[tmp_index] = atof(tmp_chr_buff);\n"\
+"                    tmp_chr_index = 0;\n"\
+"                    tmp_index++;\n"\
+"                    in_num = 0;\n"\
+"        after_point = 0;\n"\
+"                }\n"\
+"            }\n"\
+"            else{\n"\
+"                if(valbuff[i]>='0'&&valbuff[i]<='9' |\n"\
+"                    valbuff[i] == '.' || valbuff[i] == '-')\n"\
+"                {\n"\
+"                    app_and_incr(tmp_chr_buff,&tmp_chr_index, valbuff[i]);\n"\
+"                    if(valbuff[i] == '.'){\n"\
+"                        if(after_point){\n"\
+"                            msg_and_exit(\"Bad line!\",line,linen);\n"\
+"                        }\n"\
+"                        else{\n"\
+"                            after_point=1;\n"\
+"                        }\n"\
+"                    }\n"\
+"                    in_num = 1;\n"\
+"                }\n"\
+"            }\n"\
+"        }\n"\
+"        ${ALIAS}.${FIELDNAME} = malloc(sizeof(int) * tmp_index);\n"\
+"        for(int i = 0; i < tmp_index; i++){\n"\
+"            ${ALIAS}.${FIELDNAME}[i] = tmp_buff[i];\n"\
+"        }\n"\
+"        ${ALIAS}.${FIELDNAME}_nelements = tmp_index;\n"\
+"    }\n"\
+ 
+#define CGEN_LOAD_PARAM_ARR_STR_STR \
+"    if(strcmp(namebuff, \"${FIELDNAME}\") == 0){\n"\
+"        char* tmp_buff[128];\n"\
+"        int tmp_index = 0;\n"\
+"        char tmp_chr_buff[2048];\n"\
+"        int tmp_chr_index = 0;\n"\
+"        int escaped = 0;\n"\
+"        int in_str = 0;\n"\
+"        for(int i=0; i<strlen(valbuff)+1; ++i){\n"\
+"            if(in_str){\n"\
+"                if(!escaped){\n"\
+"                    if(valbuff[i] == '\\\"'){\n"\
+"                        in_str = 0;\n"\
+"                        tmp_buff[tmp_index] =\n"\
+"                            malloc(sizeof(char)*(tmp_chr_index + 1));\n"\
+"                        strcpy(tmp_buff[tmp_index], tmp_chr_buff);\n"\
+"                        tmp_chr_index = 0;\n"\
+"                        tmp_index++;\n"\
+"                    }\n"\
+"                    else if(valbuff[i] != '\\\\'){\n"\
+"                        app_and_incr(tmp_chr_buff,&tmp_chr_index,\n"\
+"                            valbuff[i]);\n"\
+"                    }\n"\
+"                    else{\n"\
+"                        escaped = 1;\n"\
+"                    }\n"\
+"                }\n"\
+"                else{\n"\
+"                    app_and_incr_escaped(tmp_chr_buff,\n"\
+"                        &tmp_chr_index, valbuff[i]);\n"\
+"                    escaped = 0;\n"\
+"                }\n"\
+"            }\n"\
+"            else{\n"\
+"                if(valbuff[i] != ' ' &&\n"\
+"                    valbuff[i] != '\\t' &&\n"\
+"                    valbuff[i] != '\\n' &&\n"\
+"                    valbuff[i] != '\\0' &&\n"\
+"                    valbuff[i] != '\\\"'\n"\
+"                    )\n"\
+"                {\n"\
+"                    msg_and_exit(\"Bad line!\",line,linen);\n"\
+"                }\n"\
+"                else if(valbuff[i] == '\\\"'){\n"\
+"                    in_str = 1;\n"\
+"                }\n"\
+"            }\n"\
+"        }\n"\
+"        if(in_str){\n"\
+"            msg_and_exit(\"Bad line!\",line,linen);\n"\
+"        }\n"\
+"        ${ALIAS}.${FIELDNAME} = malloc(sizeof(char*) * tmp_index);\n"\
+"        for(int i = 0; i < tmp_index; i++){\n"\
+"            ${ALIAS}.${FIELDNAME}[i] = malloc(strlen(tmp_buff[i] + 1));\n"\
+"            strcpy(${ALIAS}.${FIELDNAME}[i], tmp_buff[i]);\n"\
+"            free(tmp_buff[i]);\n"\
+"        }\n"\
+"        ${ALIAS}.${FIELDNAME}_nelements = tmp_index;\n"\
+"    }\n"
+
+std::string cgen_get_field_load_param_str(conf_field* cfield,
+        std::string alias)
+{
+    if(cfield->type == field_type::title)
+        return "";
+    std::map<std::string, std::string> replace_dict;
+    replace_dict["ALIAS"] = alias;
+    replace_dict["FIELDNAME"] = cfield->field_name;
+
+    std::string func_str;
+    switch(cfield->type){
+        case field_type::intf: func_str = CGEN_LOAD_PARAM_INT_STR; break;
+        case field_type::fltf: func_str = CGEN_LOAD_PARAM_FLT_STR; break;
+        case field_type::strf: func_str = CGEN_LOAD_PARAM_STR_STR; break;
+        case field_type::arrintf: func_str = CGEN_LOAD_PARAM_ARR_INT_STR; break;
+        case field_type::arrfltf: func_str = CGEN_LOAD_PARAM_ARR_FLT_STR; break;
+        case field_type::arrstrf: func_str = CGEN_LOAD_PARAM_ARR_STR_STR; break;
+    }
+
+    return replace_with_val_dict(func_str, replace_dict);
+}
+
+#define CGEN_LOAD_PARAM_FUNC_STR \
+"void load_${ALIAS}_param(char* namebuff, char* valbuff, char* line,\n"\
+"    int linen)\n"\
+"{\n"\
+"${GET_FIELD_LOAD_PARAM_STR}"\
+"}\n"
+
+std::string cgen_get_load_param_func_str(conf_file_out* cfile){
+    std::string field_load_param_str = "";
+    std::string alias = cfile->alias;
+    for(auto field_iter = cfile->file_fields.begin();
+            field_iter != cfile->file_fields.end();
+            ++field_iter)
+    {
+        field_load_param_str += cgen_get_field_load_param_str(&*field_iter,
+                alias);
+    }
+
+    std::map<std::string, std::string> replace_dict;
+    replace_dict["ALIAS"] = alias;
+    replace_dict["GET_FIELD_LOAD_PARAM_STR"] = field_load_param_str;
+    return replace_with_val_dict(CGEN_LOAD_PARAM_FUNC_STR, replace_dict);
+}
+
+
+#define CGEN_LOAD_FUNC_DECL_STR \
+"int ${ALIAS}_load_from_path(const char* path);\n"
+
+std::string cgen_get_load_func_decl_str(conf_file_out* cfile){
+    std::map<std::string, std::string> replace_dict;
+    replace_dict["ALIAS"] = cfile->alias;
+    return replace_with_val_dict(CGEN_LOAD_FUNC_DECL_STR, replace_dict);
+}
+
+
+#define CGEN_LOAD_FUNC_STR \
+"int ${ALIAS}_load_from_path(const char* path){\n"\
 "    FILE * fp;\n"\
 "    char * line = NULL;\n"\
 "    int linen = 0;\n"\
@@ -111,9 +453,7 @@
 "                case(post_name):\n"\
 "                    switch(c){\n"\
 "                        case('='):\n"\
-"                            ftype = "
-#define _LOAD_FROM_PATH_STR_B \
-"_get_field_type(namebuff);\n"\
+"                            ftype = ${ALIAS}_get_field_type(namebuff);\n"\
 "\n"\
 "                            switch(ftype){\n"\
 "                               case(intf):\n"\
@@ -178,12 +518,14 @@
 "                        case('\\t'):\n"\
 "                        case('\\n'):\n"\
 "                        case('\\0'):\n"\
-"                            load_stupid_param(namebuff, valbuff, line, linen);\n"\
+"                            load_${ALIAS}_param(namebuff, valbuff,\n"\
+"                                line, linen);\n"\
 "                            reader_state = post_val;\n"\
 "                            break;\n"\
 "                        default:\n"\
 "                            if((c >= '0' && c <= '9') ||\n"\
-"                                (c == '.' && ftype == fltf && periodf == 0))\n"\
+"                                (c == '.' &&\n"\
+"                                    ftype == fltf && periodf == 0))\n"\
 "                            {\n"\
 "                                \n"\
 "                                app_and_incr(valbuff, &valbuff_index, c);\n"\
@@ -204,7 +546,8 @@
 "                            break;\n"\
 "                        case(\'\\\"\'):\n"\
 "                            reader_state = post_val;\n"\
-"                            load_stupid_param(namebuff, valbuff, line, linen);\n"\
+"                            load_${ALIAS}_param(namebuff, valbuff,\n"\
+"                                line, linen);\n"\
 "                            break;\n"\
 "                        case('\\n'):\n"\
 "                        case('\\0'):\n"\
@@ -239,7 +582,7 @@
 "                            break;\n"\
 "                        case(']'):\n"\
 "                            reader_state = post_val;\n"\
-"                            load_stupid_param(namebuff,\n"\
+"                            load_${ALIAS}_param(namebuff,\n"\
 "                                valbuff,\n"\
 "                                line, \n"\
 "                                linen);\n"\
@@ -276,399 +619,135 @@
 "        free(line);\n"\
 "}\n"
 
-#define INDENT_1 "    "
-#define INDENT_2 INDENT_1 INDENT_1
-#define INDENT_3 INDENT_2 INDENT_1
-#define INDENT_4 INDENT_3 INDENT_1
-#define INDENT_5 INDENT_4 INDENT_1
-#define INDENT_6 INDENT_5 INDENT_1
-#define INDENT_7 INDENT_6 INDENT_1
-
-std::string cgen_field_type_str(field_type ftype){
-    std::string typestr;
-    switch (cfield->type){ 
-        case field_type::intf: case field_type::arrintf: typestr = "int"; break;
-        case field_type::fltf: case field_type::arrfltf: typestr = "flt"; break;
-        case field_type::strf: case field_type::arrstrf: typestr = "char*"; break;
-        default: break;
-    }
-
-    if(cfield->type == field_type::arrintf ||
-        cfield->type == field_type::arrfltf ||
-        cfield->type == field_type::arrstrf)
-    {
-        typestr += '*';
-    }
-    return typestr
-}
-
-#define CGEN_STRUCT_FIELD_F \
-"    ${TYPESTR} ${FIELDNAME};\n"
-#define CGEN_STRUCT_FIELD_ARRF \
-CGEN_STRUCT_FIELD_F \
-"    size_t ${FIELDNAME}_nelements;\n"
-
-std::string cgen_get_header_struct_str(conf_field* cfield){
-    if(cfield->type == field_type::title)
-        return;
+std::string get_load_func_str(conf_file_out* cfile){
     std::map<std::string, std::string> replace_dict;
-    replace_dict["FIELDNAME"] = cfield->field_name;
-    replace_dict["TYPESTR"] = cgen_field_type_str(cfield->type);
-
-    if(type==field_type::intf||type==field_type::fltf||type==field_type::strf){
-        return replace_with_val_dict(CGEN_STRUCT_FIELD_F, replace_dict);
-    }
-    else{
-        return replace_with_val_dict(CGEN_STRUCT_FIELD_ARRF, replace_dict);
-    }
-}
-
-#define CGEN_STRUCT_STR
-"struct ${ALIAS}_struct{\n"\
-"${STRUCT_FIELDS_STR}"\
-"}${ALIAS};\n"
-
-std::string get_struct_str(conf_file_out* cfile){
-    std::string struct_fields_str = "";
-    for(auto iter = cfile->file_fields.begin();
-            iter != cfile->file_fields.end();
-            ++iter)
-    {
-        struct_fields_str += cgen_get_header_struct_str(&*iter);
-    }
-
-    std::map<std::string, std::string> replace_dict;
-    replace_dict["STRUCT_FIELDS_STR"] = struct_fields_str;
     replace_dict["ALIAS"] = cfile->alias;
-    return replace_with_val_dict(CGEN_STRUCT_STR, replace_dict);
+    return replace_with_val_dict(CGEN_LOAD_FUNC_STR, replace_dict);
 }
 
+//DEFINES
+#define CGEN_HEADER_GLOBAL_STR \
+"//This file was created automagically by conf-gen,\n"\
+"//    for the project ${PROJNAME}\n"\
+"#include <string.h>\n"\
+"#ifdef __cplusplus\n"\
+"#extern \"C\" {\n"\
+"#endif\n"
 
-std::string cgen_get_ctypename(field_type ftype){
-    switch (type){
-        case field_type::intf:
-            return "intf"; break;
-        case field_type::fltf:
-            return "fltf"; break;
-        case field_type::strf:
-            return "strf"; break;
-        case field_type::arrintf:
-            return "arrintf"; break;
-        case field_type::arrfltf:
-            return "arrfltf"; break;
-        case field_type::arrstrf:
-            return "arrstrf"; break;
-        default: break;
-    }
+#define CGEN_HEADER_GLOBAL_FOOTER_STR \
+"#ifdef __cplusplus\n"\
+"}\n"\
+"#endif\n"
+
+std::string cgen_get_header_global_str(std::string projname){
+    std::map<std::string, std::string> replace_dict;
+    replace_dict["PROJNAME"] = projname;
+    return replace_with_val_dict(CGEN_HEADER_GLOBAL_STR, replace_dict);
 }
 
-#define CGEN_GET_FIELD_TYPE_FUNC_FIELD_STR \
-"    if(strcmp(namebuff, \"${FIELDNAME}\") == 0)\n"\
-"        return ${CTYPENAME};\n"
-
-void cgen_get_field_type_func_field_str(conf_field* cfield){
-    if(type == field_type::intf ||
-            type == field_type::fltf ||
-            type == field_type::strf ||
-            type == field_type::arrintf ||
-            type == field_type::arrfltf ||
-            type == field_type::arrstrf)
-    {
-        std::map<std::string, std::string> replace_dict;
-        replace_dict["FIELDNAME"] = cfield->field_name;
-        replace_dict["CTYPENAME"] = cgen_get_ctypename(cfield->type);
-        return replace_with_val_dict(CGEN_GET_FIELD_TYPE_FUNC_FIELD_STR, 
-                replace_dict);
-    }
-}
-
-#define CGEN_GET_FIELD_TYPE_FUNC_STR \
-"    field_type ${ALIAS}_get_field_type(char* namebuff){\n"\
-"${GET_FIELD_TYPE_STR}"
-"    printf(\"Invalid field name!\\n\%s\\n\", namebuff);\n"\
-"    exit(EXIT_FAILURE);
+#define CGEN_SOURCE_GLOBAL_STR \
+"#include <stdio.h>\n"\
+"#include <stdlib.h>\n"\
+"#include <${PROJNAME}.h>\n"\
+"typedef enum {intf, fltf, strf, arrintf, arrfltf, arrstrf} field_type;\n"\
+"void msg_and_exit(char* msg, char* line, int linen){\n"\
+"    printf(\"\%s\", msg);\n"\
+"    printf(\"\\nLine #:%d\\n\%s\\n\", linen, line);\n"\
+"    exit(EXIT_FAILURE);\n"\
+"}\n"\
+"\n"\
+"void app_and_incr(char* buff, int* index, char to_append){\n"\
+"    buff[*index] = to_append;\n"\
+"    buff[*index + 1] = \'\\0\';\n"\
+"    (*index)++;\n"\
+"}\n"\
+"void app_and_incr_escaped(char* buff, int* index, char to_append){\n"\
+"    switch(to_append){\n"\
+"        case('n'):\n"\
+"            app_and_incr(buff, index, '\\n');\n"\
+"            break;\n"\
+"        case('\\\"'):\n"\
+"            app_and_incr(buff, index, '\\\"');\n"\
+"            break;\n"\
+"        case('t'):\n"\
+"            app_and_incr(buff, index, '\\t');\n"\
+"            break;\n"\
+"        case('\\\\'):\n"\
+"            app_and_incr(buff, index, '\\\\');\n"\
+"            break;\n"\
+"        case('r'):\n"\
+"            app_and_incr(buff, index, '\\r');\n"\
+"            break;\n"\
+"        case('f'):\n"\
+"            app_and_incr(buff, index, '\\f');\n"\
+"            break;\n"\
+"        default:\n"\
+"            printf(\"Bad escape sequence!\");\n"\
+"            exit(EXIT_FAILURE);\n"\
+"            break;\n"\
+"    }\n"\
 "}\n"
 
-std::string cgen_get_field_type_func_str(conf_file_out& cfile){
-    fields_get_type_str = "";
-    for(auot iter = cfile->file_fields.begin();
-            iter != cfile->file_fields.end();
-            ++iter)
-    {
-        fields_get_type_str += cgen_get_field_type_func_field_str(&*iter);
-    }
+std::string cgen_get_source_global_str(std::string projname){
     std::map<std::string, std::string> replace_dict;
-    replace_dict["ALIAS"] = cfile->alias;
-    replace_dict["GET_FIELD_TYPE_STR"] = fields_get_type_str;
-    return replace_with_val_dict(CGEN_GET_FIELD_TYPE_FUNC_STR, replace_dict);
+    replace_dict["PROJNAME"] = projname;
+    return replace_with_val_dict(CGEN_SOURCE_GLOBAL_STR, replace_dict);
 }
 
-#define CGEN_PATH_STR \
-"static_const_char ${ALIAS}_path[] = \"${PATH}\";\n"
-
-std::string cgen_get_path_str(conf_file_out* cfile){
-     std::map<std::string, std::string> replace_dict;
-    replace_dict["ALIAS"] = cfile->alias;
-    replace_dict["PATH"] = cfile->conf_full_path;
-
-    return replace_with_val_dict(CGEN_PATH_STR, replace_dict);
-}
-
-std::string cgen_get_parse_lines(conf_field cfield, std::string alias){
-    if(cfield.type != field_type::title){
-        outs << INDENT_1 << \
-            "if(strcmp(namebuff, \"" << cfield.field_name << \
-                "\") == 0){\n";
-
-        switch(cfield.type){
-            case field_type::intf:
-                outs << INDENT_2 << alias << '.' << cfield.field_name \
-                    << "= atoi(valbuff);\n";
-                break;
-            case field_type::fltf:
-                outs << INDENT_2 << alias << '.' << cfield.field_name \
-                    << "= atof(valbuff);\n";
-                break;
-            case field_type::strf:
-                outs << INDENT_2 << "int l = strlen(valbuff);\n"\
-                    << INDENT_2 << alias << '.' << cfield.field_name \
-                        << " = malloc(l + 1);\n" \
-                    << INDENT_2 << "strcpy(" << alias << '.' \
-                        << cfield.field_name << ", valbuff);\n"\
-                        << INDENT_2 << alias << '.' << cfield.field_name \
-                        << "[l] = '\\0';\n";
-                break;
-            case field_type::arrintf:
-                outs << INDENT_2 << "int tmp_buff[128];\n"\
-                    << INDENT_2 << "int tmp_index = 0;\n"\
-                    << INDENT_2 << "char tmp_chr_buff[128];\n"\
-                    << INDENT_2 << "int tmp_chr_index = 0;\n"\
-                    << INDENT_2 << "int in_num = 0;\n"\
-                    << INDENT_2 << "for(int i=0; i<strlen(valbuff)+1; ++i){\n"\
-                    << INDENT_3 << "if(valbuff[i] != ' ' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\t' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\n' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\0' && \n"\
-                    << INDENT_4 << "valbuff[i] != '-' && \n"\
-                    << INDENT_4 << "!(valbuff[i] >= '0' && valbuff[i]<='9'))\n"\
-                    << INDENT_3 << "{\n"\
-                    << INDENT_4 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_3 << "if(in_num){\n"\
-                    << INDENT_4 << "if(valbuff[i] == '-'){\n"\
-                    << INDENT_5 << "msg_and_exit(\"bad line!\",line,linen);\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9'){\n"\
-                    << INDENT_5 << "app_and_incr(tmp_chr_buff,"
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "else{\n"\
-                    << INDENT_5 << "tmp_buff[tmp_index] = "\
-                        << "atoi(tmp_chr_buff);\n"\
-                    << INDENT_5 << "tmp_chr_index = 0;\n"\
-                    << INDENT_5 << "tmp_index++;\n"\
-                    << INDENT_5 << "in_num = 0;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_3 << "else{\n"\
-                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9'\n"\
-                    << INDENT_5 << "|| valbuff[i] == '-'){\n"\
-                    << INDENT_5 << "app_and_incr(tmp_chr_buff,"
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_5 << "in_num = 1;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << " = malloc(sizeof(int) * tmp_index);\n"\
-                    << INDENT_2 << "for(int i = 0; i < tmp_index; i++){\n"\
-                    << INDENT_3 << alias << "." << cfield.field_name\
-                        << "[i] = tmp_buff[i];\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << "_nelements = tmp_index;\n";
-                break;
-            case field_type::arrfltf:
-                outs << INDENT_2 << "float tmp_buff[128];\n"\
-                    << INDENT_2 << "int tmp_index = 0;\n"\
-                    << INDENT_2 << "char tmp_chr_buff[128];\n"\
-                    << INDENT_2 << "int tmp_chr_index = 0;\n"\
-                    << INDENT_2 << "int in_num = 0;\n"\
-                    << INDENT_2 << "int after_point = 0;\n"\
-                    << INDENT_2 << "for(int i=0; i<strlen(valbuff)+1; ++i){\n"\
-                    << INDENT_3 << "if(valbuff[i] != ' ' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\t' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\n' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\0' && \n"\
-                    << INDENT_4 << "valbuff[i] != '.' && \n"\
-                    << INDENT_4 << "valbuff[i] != '-' && \n"\
-                    << INDENT_4 << "!(valbuff[i] >= '0'&&valbuff[i]<='9'))\n"\
-                    << INDENT_3 << "{\n"\
-                    << INDENT_4 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_3 << "if(in_num){\n"\
-                    << INDENT_4 << "if(valbuff[i] == '-'){\n"\
-                    << INDENT_5 << "msg_and_exit(\"bad line!\",line,linen);\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9' ||"\
-                        <<  "valbuff[i] == '.'){\n"\
-                    << INDENT_5 << "app_and_incr(tmp_chr_buff,"\
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_5 << "if(valbuff[i] == '.'){\n"\
-                    << INDENT_6 << "if(after_point){\n"\
-                    << INDENT_7 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_6 << "}\n"\
-                    << INDENT_6 << "else{\n"\
-                    << INDENT_7 << "after_point=1;\n"\
-                    << INDENT_6 << "}\n"\
-                    << INDENT_5 << "}\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "else{\n"\
-                    << INDENT_5 << "tmp_buff[tmp_index] = "\
-                        << "atof(tmp_chr_buff);\n"\
-                    << INDENT_5 << "tmp_chr_index = 0;\n"\
-                    << INDENT_5 << "tmp_index++;\n"\
-                    << INDENT_5 << "in_num = 0;\n"\
-                    << INDENT_2 << "after_point = 0;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_3 << "else{\n"\
-                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9' ||"\
-                        <<  "valbuff[i] == '.' || valbuff[i] == '-'){\n"\
-                    << INDENT_5 << "app_and_incr(tmp_chr_buff,"
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_5 << "if(valbuff[i] == '.'){\n"\
-                    << INDENT_6 << "if(after_point){\n"\
-                    << INDENT_7 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_6 << "}\n"\
-                    << INDENT_6 << "else{\n"\
-                    << INDENT_7 << "after_point=1;\n"\
-                    << INDENT_6 << "}\n"\
-                    << INDENT_5 << "}\n"\
-                    << INDENT_5 << "in_num = 1;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << " = malloc(sizeof(int) * tmp_index);\n"\
-                    << INDENT_2 << "for(int i = 0; i < tmp_index; i++){\n"\
-                    << INDENT_3 << alias << "." << cfield.field_name\
-                        << "[i] = tmp_buff[i];\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << "_nelements = tmp_index;\n";
-                break;
-            case field_type::arrstrf:
-                outs << INDENT_2 << "char* tmp_buff[128];\n"\
-                    << INDENT_2 << "int tmp_index = 0;\n"\
-                    << INDENT_2 << "char tmp_chr_buff[2048];\n"\
-                    << INDENT_2 << "int tmp_chr_index = 0;\n"\
-                    << INDENT_2 << "int escaped = 0;\n"\
-                    << INDENT_2 << "int in_str = 0;\n"\
-                    << INDENT_2 << "for(int i=0; i<strlen(valbuff)+1; ++i){\n"\
-                    << INDENT_3 << "if(in_str){\n"\
-                    << INDENT_4 << "if(!escaped){\n"\
-                    << INDENT_5 << "if(valbuff[i] == '\\\"'){\n"\
-                    << INDENT_6 << "in_str = 0;\n"\
-                    << INDENT_6 << "tmp_buff[tmp_index] = "\
-                        << "malloc(sizeof(char)*(tmp_chr_index + 1));\n"\
-                    << INDENT_6 << "strcpy(tmp_buff[tmp_index], "\
-                        << "tmp_chr_buff);\n"\
-                    << INDENT_6 << "tmp_chr_index = 0;\n"\
-                    << INDENT_6 << "tmp_index++;\n"\
-                    << INDENT_5 << "}\n"\
-                    << INDENT_5 << "else if(valbuff[i] != '\\\\'){\n"\
-                    << INDENT_6 << "app_and_incr(tmp_chr_buff,"
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_5 << "}\n"\
-                    << INDENT_5 << "else{\n"\
-                    << INDENT_6 << "escaped = 1;\n"\
-                    << INDENT_5 << "}\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "else{\n"\
-                    << INDENT_5 << "app_and_incr_escaped(tmp_chr_buff,"
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_5 << "escaped = 0;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_3 << "else{\n"\
-                    << INDENT_4 << "if(valbuff[i] != ' ' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\t' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\n' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\0' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\\"'\n"\
-                    << INDENT_5 << ")\n"\
-                    << INDENT_4 << "{\n"\
-                    << INDENT_5 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "else if(valbuff[i] == '\\\"'){\n"\
-                    << INDENT_5 << "in_str = 1;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << "if(in_str){\n"\
-                    << INDENT_3 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << " = malloc(sizeof(char*) * tmp_index);\n"\
-                    << INDENT_2 << "for(int i = 0; i < tmp_index; i++){\n"\
-                    << INDENT_3 << alias << "." << cfield.field_name\
-                        << "[i] = malloc(strlen(tmp_buff[i] + 1));\n"\
-                    << INDENT_3 << "strcpy("\
-                        << alias << "." << cfield.field_name << "[i], "\
-                        << "tmp_buff[i]);\n"\
-                    << INDENT_3 << "free(tmp_buff[i]);\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << "_nelements = tmp_index;\n";
-                break;
-        }
-        outs << INDENT_1 << "}\n";
-    }
-}
-
-std::string cgen_header(conf_file_out* cfile){
-    std::string retval = "";
-       if(cfile->is_managed){
-        outs << "void load_" << alias << "_param(char* namebuff,\n"\
-            << INDENT_1 << "char* valbuff,\n"\
-            << INDENT_1 << "char* line,\n"\
-            << INDENT_1 << "int linen)\n"\
-            << "{\n";
-        for(auto field_iter = file_fields.begin();
-                field_iter != file_fields.end();
-                ++field_iter)
-        {
-            get_parse_lines(*field_iter, alias, outs);
-        }
-        outs << "}\n";
-
-        outs << "int " << alias << "_load_from_path(const char* path){\n";
-        outs << _LOAD_FROM_PATH_STR_A << alias << _LOAD_FROM_PATH_STR_B;
-    }
-}
-
-
-void generate_outputs(std::vector<conf_file_out> conf_files,
-        std::string out_fname)
+void cgen(std::vector<conf_file_out> conf_files, std::string out_fname)
 {
-
     std::ofstream headeroutstream;
-    std::stringstream headerbuff;
+    headeroutstream.open(out_fname + ".h");
 
-    //Global includes
-    headerbuff << GLOBAL_HEADER;
+    std::string projname = get_file_name_no_extention(out_fname);
 
+    headeroutstream << cgen_get_header_global_str(projname);
+    std::cout << cgen_get_header_global_str << std::endl;
+
+    //Paths
     for(auto file_iter = conf_files.begin();
             file_iter != conf_files.end();
             ++file_iter)
     {
-        file_iter->get_header_str(headerbuff);
+        headeroutstream << cgen_get_path_str(&*file_iter);
     }
 
-    headeroutstream.open(out_header_fname);
-    headeroutstream << headerbuff.rdbuf();
+    //Structs
+    for(auto file_iter = conf_files.begin();
+            file_iter != conf_files.end();
+            ++file_iter)
+    {
+        if(file_iter->is_managed){
+            headeroutstream << cgen_get_struct_str(&*file_iter);
+            headeroutstream << cgen_get_load_func_decl_str(&*file_iter);
+            headeroutstream << std::endl;
+        }
+    }
+
+    headeroutstream << CGEN_HEADER_GLOBAL_FOOTER_STR;
+
     headeroutstream.close();
 
+    std::ofstream srcoutstream;
+    srcoutstream.open(out_fname + ".c");
 
+    srcoutstream << cgen_get_source_global_str(projname);
+
+    //Structs
+    for(auto file_iter = conf_files.begin();
+            file_iter != conf_files.end();
+            ++file_iter)
+    {
+        if(file_iter->is_managed){
+            srcoutstream << cgen_get_field_type_func_str(&*file_iter);
+            srcoutstream << cgen_get_load_param_func_str(&*file_iter);
+            srcoutstream << get_load_func_str(&*file_iter);
+
+            srcoutstream << std::endl;
+        }
+    }
+
+    srcoutstream.close();
 }
+
+#endif
