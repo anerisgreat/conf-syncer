@@ -9,6 +9,7 @@
 
 #include "gen-conf-structs.h"
 #include "gen-conf-c.h"
+#include "gen-conf-py.h"
 
 //__________REGEX______________________________________________________________
 #define FIELD_NAME_RE "[a-zA-Z_]+[a-zA-Z0-9\\-_]*"
@@ -49,61 +50,6 @@ static std::regex comp_field_str_arr_re(FIELD_STR_ARR_RE);
 static std::regex comp_field_title_re(FIELD_TITLE_RE);
 static std::regex comp_field_noval_re(FIELD_NOVAL_RE);
 static std::regex comp_empty_line_re(EMPTY_LINE_RE);
-
-#define PY_GLOBAL_HEADER \
-"import re\n"\
-"import sys\n"\
-"\n"\
-"field_int_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*(\\-?[0-9]+)[ \\t]*$')\n"\
-"field_flt_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*(\\-?[0-9]*\\.[0-9]+)[ \\t]*$')\n"\
-"field_str_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*(\\\"(?:[^\\\"\\\\]|\\\\.)*\\\")[ \\t]*$')\n"\
-"field_int_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[([ \\t]*\\-?[0-9]+(?:[ \\t]+\\-?[0-9]+)*)[ \\t]*\\][ \\t]*$')\n"\
-"field_flt_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[[ \\t]*(\\-?[0-9]*\\.[0-9]+(?:[ \\t]+\\-?[0-9]*\\.[0-9]+)*)[ \\t]*\\][ \\t]*$')\n"\
-"field_str_arr_re = re.compile(r'^[ \\t]*([a-zA-Z_]+[a-zA-Z0-9\\-_]*)[ \\t]*=[ \\t]*\\[[ \\t]*(\\\"(?:[^\\\"\\\\]|\\\\.)*\\\"(?:[ \\t]+\\\"(?:[^\\\"\\\\]|\\\\.)*\\\")*)[ \\t]*\\][ \\t]*$')\n"\
-"empty_line_re = re.compile(r'^[ \\t]*$')\n"\
-"field_title_re = re.compile(r'^[ \\t]*\\[([^\\[\\]]+)\\][ \\t]*$')\n"\
-"\n"\
-"class confobj(object):\n"\
-"    pass\n"\
-"\n"
-
-//def NAME_load_from_path()...
-#define PY_LOAD_FROM_PATH_A \
-"_load_from_path(path):\n"\
-"    fread = open(path, 'r')\n"\
-"    retval = confobj()\n"\
-"    linestr = fread.readline()\n"\
-"    linen = 0\n"\
-"    while(linestr != ''):\n"\
-"        fintm = field_int_re.match(linestr)\n"\
-"        ffltm = field_flt_re.match(linestr)\n"\
-"        fstrm = field_str_re.match(linestr)\n"\
-"        farrintm = field_int_arr_re.match(linestr)\n"\
-"        farrfltm = field_flt_arr_re.match(linestr)\n"\
-"        farrstrm = field_str_arr_re.match(linestr)\n"\
-"        femptym = empty_line_re.match(linestr)\n"\
-"        ftitlem = field_title_re.match(linestr)\n"\
-"\n"\
-"        isintf = fintm != None\n"\
-"        isfltf = ffltm != None\n"\
-"        isstrf = fstrm != None\n"\
-"        isarrintf = farrintm != None\n"\
-"        isarrfltf = farrfltm != None\n"\
-"        isarrstrf = farrstrm != None\n"\
-"        isemptyf = femptym != None\n"\
-"        istitlef = ftitlem != None\n"\
-"\n"\
-"        if(isemptyf or istitlef):\n"\
-"           pass\n"\
-"\n"
-#define PY_LOAD_FROM_PATH_B \
-"        else:\n"\
-"            raise ValueError('Bad line one line #' + \n"\
-"                str(linen) + ': ' + linestr)\n"\
-"        linen = linen + 1\n"\
-"        linestr = fread.readline()\n"\
-"    return retval\n"\
-"\n"
 
 conf_file_in get_conf_file_in(std::string in_str){
     conf_file_in retval;
@@ -190,222 +136,6 @@ std::string get_conf_line(conf_field* cfield){
     }
 
     return outs.str();
-
-}
-
-void get_parse_lines(conf_field cfield, std::string alias, 
-        std::stringstream& outs)
-{
-    if(cfield.type != field_type::title){
-        outs << INDENT_1 << \
-            "if(strcmp(namebuff, \"" << cfield.field_name << \
-                "\") == 0){\n";
-
-        switch(cfield.type){
-            case field_type::intf:
-                outs << INDENT_2 << alias << '.' << cfield.field_name \
-                    << "= atoi(valbuff);\n";
-                break;
-            case field_type::fltf:
-                outs << INDENT_2 << alias << '.' << cfield.field_name \
-                    << "= atof(valbuff);\n";
-                break;
-            case field_type::strf:
-                outs << INDENT_2 << "int l = strlen(valbuff);\n"\
-                    << INDENT_2 << alias << '.' << cfield.field_name \
-                        << " = malloc(l + 1);\n" \
-                    << INDENT_2 << "strcpy(" << alias << '.' \
-                        << cfield.field_name << ", valbuff);\n"\
-                        << INDENT_2 << alias << '.' << cfield.field_name \
-                        << "[l] = '\\0';\n";
-                break;
-            case field_type::arrintf:
-                outs << INDENT_2 << "int tmp_buff[128];\n"\
-                    << INDENT_2 << "int tmp_index = 0;\n"\
-                    << INDENT_2 << "char tmp_chr_buff[128];\n"\
-                    << INDENT_2 << "int tmp_chr_index = 0;\n"\
-                    << INDENT_2 << "int in_num = 0;\n"\
-                    << INDENT_2 << "for(int i=0; i<strlen(valbuff)+1; ++i){\n"\
-                    << INDENT_3 << "if(valbuff[i] != ' ' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\t' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\n' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\0' && \n"\
-                    << INDENT_4 << "valbuff[i] != '-' && \n"\
-                    << INDENT_4 << "!(valbuff[i] >= '0' && valbuff[i]<='9'))\n"\
-                    << INDENT_3 << "{\n"\
-                    << INDENT_4 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_3 << "if(in_num){\n"\
-                    << INDENT_4 << "if(valbuff[i] == '-'){\n"\
-                    << INDENT_5 << "msg_and_exit(\"bad line!\",line,linen);\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9'){\n"\
-                    << INDENT_5 << "app_and_incr(tmp_chr_buff,"
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "else{\n"\
-                    << INDENT_5 << "tmp_buff[tmp_index] = "\
-                        << "atoi(tmp_chr_buff);\n"\
-                    << INDENT_5 << "tmp_chr_index = 0;\n"\
-                    << INDENT_5 << "tmp_index++;\n"\
-                    << INDENT_5 << "in_num = 0;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_3 << "else{\n"\
-                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9'\n"\
-                    << INDENT_5 << "|| valbuff[i] == '-'){\n"\
-                    << INDENT_5 << "app_and_incr(tmp_chr_buff,"
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_5 << "in_num = 1;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << " = malloc(sizeof(int) * tmp_index);\n"\
-                    << INDENT_2 << "for(int i = 0; i < tmp_index; i++){\n"\
-                    << INDENT_3 << alias << "." << cfield.field_name\
-                        << "[i] = tmp_buff[i];\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << "_nelements = tmp_index;\n";
-                break;
-            case field_type::arrfltf:
-                outs << INDENT_2 << "float tmp_buff[128];\n"\
-                    << INDENT_2 << "int tmp_index = 0;\n"\
-                    << INDENT_2 << "char tmp_chr_buff[128];\n"\
-                    << INDENT_2 << "int tmp_chr_index = 0;\n"\
-                    << INDENT_2 << "int in_num = 0;\n"\
-                    << INDENT_2 << "int after_point = 0;\n"\
-                    << INDENT_2 << "for(int i=0; i<strlen(valbuff)+1; ++i){\n"\
-                    << INDENT_3 << "if(valbuff[i] != ' ' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\t' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\n' && \n"\
-                    << INDENT_4 << "valbuff[i] != '\\0' && \n"\
-                    << INDENT_4 << "valbuff[i] != '.' && \n"\
-                    << INDENT_4 << "valbuff[i] != '-' && \n"\
-                    << INDENT_4 << "!(valbuff[i] >= '0'&&valbuff[i]<='9'))\n"\
-                    << INDENT_3 << "{\n"\
-                    << INDENT_4 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_3 << "if(in_num){\n"\
-                    << INDENT_4 << "if(valbuff[i] == '-'){\n"\
-                    << INDENT_5 << "msg_and_exit(\"bad line!\",line,linen);\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9' ||"\
-                        <<  "valbuff[i] == '.'){\n"\
-                    << INDENT_5 << "app_and_incr(tmp_chr_buff,"\
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_5 << "if(valbuff[i] == '.'){\n"\
-                    << INDENT_6 << "if(after_point){\n"\
-                    << INDENT_7 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_6 << "}\n"\
-                    << INDENT_6 << "else{\n"\
-                    << INDENT_7 << "after_point=1;\n"\
-                    << INDENT_6 << "}\n"\
-                    << INDENT_5 << "}\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "else{\n"\
-                    << INDENT_5 << "tmp_buff[tmp_index] = "\
-                        << "atof(tmp_chr_buff);\n"\
-                    << INDENT_5 << "tmp_chr_index = 0;\n"\
-                    << INDENT_5 << "tmp_index++;\n"\
-                    << INDENT_5 << "in_num = 0;\n"\
-                    << INDENT_2 << "after_point = 0;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_3 << "else{\n"\
-                    << INDENT_4 << "if(valbuff[i]>='0'&&valbuff[i]<='9' ||"\
-                        <<  "valbuff[i] == '.' || valbuff[i] == '-'){\n"\
-                    << INDENT_5 << "app_and_incr(tmp_chr_buff,"
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_5 << "if(valbuff[i] == '.'){\n"\
-                    << INDENT_6 << "if(after_point){\n"\
-                    << INDENT_7 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_6 << "}\n"\
-                    << INDENT_6 << "else{\n"\
-                    << INDENT_7 << "after_point=1;\n"\
-                    << INDENT_6 << "}\n"\
-                    << INDENT_5 << "}\n"\
-                    << INDENT_5 << "in_num = 1;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << " = malloc(sizeof(int) * tmp_index);\n"\
-                    << INDENT_2 << "for(int i = 0; i < tmp_index; i++){\n"\
-                    << INDENT_3 << alias << "." << cfield.field_name\
-                        << "[i] = tmp_buff[i];\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << "_nelements = tmp_index;\n";
-                break;
-            case field_type::arrstrf:
-                outs << INDENT_2 << "char* tmp_buff[128];\n"\
-                    << INDENT_2 << "int tmp_index = 0;\n"\
-                    << INDENT_2 << "char tmp_chr_buff[2048];\n"\
-                    << INDENT_2 << "int tmp_chr_index = 0;\n"\
-                    << INDENT_2 << "int escaped = 0;\n"\
-                    << INDENT_2 << "int in_str = 0;\n"\
-                    << INDENT_2 << "for(int i=0; i<strlen(valbuff)+1; ++i){\n"\
-                    << INDENT_3 << "if(in_str){\n"\
-                    << INDENT_4 << "if(!escaped){\n"\
-                    << INDENT_5 << "if(valbuff[i] == '\\\"'){\n"\
-                    << INDENT_6 << "in_str = 0;\n"\
-                    << INDENT_6 << "tmp_buff[tmp_index] = "\
-                        << "malloc(sizeof(char)*(tmp_chr_index + 1));\n"\
-                    << INDENT_6 << "strcpy(tmp_buff[tmp_index], "\
-                        << "tmp_chr_buff);\n"\
-                    << INDENT_6 << "tmp_chr_index = 0;\n"\
-                    << INDENT_6 << "tmp_index++;\n"\
-                    << INDENT_5 << "}\n"\
-                    << INDENT_5 << "else if(valbuff[i] != '\\\\'){\n"\
-                    << INDENT_6 << "app_and_incr(tmp_chr_buff,"
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_5 << "}\n"\
-                    << INDENT_5 << "else{\n"\
-                    << INDENT_6 << "escaped = 1;\n"\
-                    << INDENT_5 << "}\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "else{\n"\
-                    << INDENT_5 << "app_and_incr_escaped(tmp_chr_buff,"
-                        << "&tmp_chr_index, valbuff[i]);\n"\
-                    << INDENT_5 << "escaped = 0;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_3 << "else{\n"\
-                    << INDENT_4 << "if(valbuff[i] != ' ' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\t' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\n' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\0' &&\n"\
-                    << INDENT_5 << "valbuff[i] != '\\\"'\n"\
-                    << INDENT_5 << ")\n"\
-                    << INDENT_4 << "{\n"\
-                    << INDENT_5 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_4 << "else if(valbuff[i] == '\\\"'){\n"\
-                    << INDENT_5 << "in_str = 1;\n"\
-                    << INDENT_4 << "}\n"\
-                    << INDENT_3 << "}\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << "if(in_str){\n"\
-                    << INDENT_3 << "msg_and_exit(\"Bad line!\",line,linen);\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << " = malloc(sizeof(char*) * tmp_index);\n"\
-                    << INDENT_2 << "for(int i = 0; i < tmp_index; i++){\n"\
-                    << INDENT_3 << alias << "." << cfield.field_name\
-                        << "[i] = malloc(strlen(tmp_buff[i] + 1));\n"\
-                    << INDENT_3 << "strcpy("\
-                        << alias << "." << cfield.field_name << "[i], "\
-                        << "tmp_buff[i]);\n"\
-                    << INDENT_3 << "free(tmp_buff[i]);\n"\
-                    << INDENT_2 << "}\n"\
-                    << INDENT_2 << alias << "." << cfield.field_name\
-                        << "_nelements = tmp_index;\n";
-                break;
-        }
-        outs << INDENT_1 << "}\n";
-    }
 }
 
 void get_conf_str(conf_file_out* cfile, std::stringstream& outs){
@@ -415,18 +145,6 @@ void get_conf_str(conf_file_out* cfile, std::stringstream& outs){
     {
         outs << get_conf_line(&*iter) << '\n';
     }
-}
-
-void get_py_str(conf_file_out* cfile, std::stringstream& outs){
-    outs << cfile->alias << "_path = \"" << cfile->conf_full_path << "\"\n";
-    outs << "def " << cfile->alias << PY_LOAD_FROM_PATH_A;
-    for(auto iter = cfile->file_fields.begin();
-            iter != cfile->file_fields.end();
-            ++iter)
-    {
-        iter->get_py_str(outs);
-    }
-    outs << PY_LOAD_FROM_PATH_B;
 }
 
 std::vector<conf_field> process_files_for_dest(
@@ -700,21 +418,7 @@ void generate_outputs(std::vector<conf_file_out> conf_files,
     }
 
     cgen(conf_files, out_cgen_fname);
-
-    std::ofstream pyoutstream;
-    std::stringstream pybuff;
-    pybuff << PY_GLOBAL_HEADER;
-
-    for(auto file_iter = conf_files.begin();
-            file_iter != conf_files.end();
-            ++file_iter)
-    {
-        get_py_str(&*file_iter, pybuff);
-    }
-
-    pyoutstream.open(out_py_fname);
-    pyoutstream << pybuff.rdbuf();
-    pyoutstream.close();
+    pygen(conf_files, out_py_fname);
 }
 
 int main(int argc, char** argv)

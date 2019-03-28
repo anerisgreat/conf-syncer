@@ -36,8 +36,6 @@ struct conf_file_in{
 
 struct conf_field{
     public:
-        //std::string src[MAX_FIELD_LEN]; //?
-        //char dst[MAX_FIELD_LEN]; //?
         std::string field_name;
         int default_int;
         float default_float;
@@ -47,7 +45,7 @@ struct conf_field{
         std::vector<float> default_flt_arr;
         std::vector<std::string> default_str_arr;
 
-        field_type type; //IS THERE ENUM MUST MAKE
+        field_type type;
 
         conf_field() :
             field_name(""),
@@ -59,66 +57,6 @@ struct conf_field{
             default_str_arr()
         {}
 
-        void get_py_str(std::stringstream& outs){
-            if(type != field_type::title){
-                outs << INDENT_2 << "elif(";
-                switch (type){
-                    case field_type::intf:
-                        outs << "isintf"; break;
-                    case field_type::fltf:
-                        outs << "isfltf"; break;
-                    case field_type::strf:
-                        outs << "isstrf"; break;
-                    case field_type::arrintf:
-                        outs << "isarrintf"; break;
-                    case field_type::arrfltf:
-                        outs << "isarrfltf"; break;
-                    case field_type::arrstrf:
-                        outs << "isarrstrf"; break;
-                    default: break;
-                }
-                outs << " and ";
-                switch (type){
-                    case field_type::intf:
-                        outs << "fintm"; break;
-                    case field_type::fltf:
-                        outs << "ffltm"; break;
-                    case field_type::strf:
-                        outs << "fstrm"; break;
-                    case field_type::arrintf:
-                        outs << "farrintm"; break;
-                    case field_type::arrfltf:
-                        outs << "farrfltm"; break;
-                    case field_type::arrstrf:
-                        outs << "farrstrm"; break;
-                    default: break;
-                }
-                outs << ".group(1) == '" << field_name << "'):\n";
-                outs << INDENT_3 << "retval." << field_name << " = ";
-                switch (type){
-                    case field_type::intf:
-                        outs << "int(fintm.group(2))"; break;
-                    case field_type::fltf:
-                        outs << "float(ffltm.group(2))"; break;
-                    case field_type::strf:
-                        outs << "fstrm.group(2)[1:len(fstrm.group(2)) - 1].decode('string-escape')"; break;
-                    case field_type::arrintf:
-                        outs << "[int(match) for match in "\
-                            << "re.compile(r'\\-?[0-9]+')"\
-                            << ".findall(farrintm.group(2))]"; break;
-                    case field_type::arrfltf:
-                        outs << "[float(match) for match in "\
-                            << "re.compile(r'\\-?[0-9]*\\.[0-9]+')"\
-                            << ".findall(farrfltm.group(2))]"; break;
-                    case field_type::arrstrf:
-                        outs << "[match[1:len(match)-1].decode('string-escape') for match in "\
-                            << "re.compile(r'\\\"(?:[^\\\"\\\\]|\\\\.)*\\\"')"\
-                            << ".findall(farrstrm.group(2))]"; break;
-                }
-
-                outs << "\n\n";
-            }
-        }
 };
 
 struct conf_file_out{
